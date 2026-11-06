@@ -1,7 +1,7 @@
 # StayOps product roadmap
 
 StayOps is a homestay operations workspace: a brand story site plus an AI-assisted back office
-(Overview, AI Assistant, Tasks, Procedures, Properties, Activity Logs). The existing **Softr
+(Overview, AI Assistant, Tasks, Procedures, Properties, Analytics, Activity Logs). The existing **Softr
 Database** stays the only business database, reached only from Netlify Functions.
 
 Each milestone is a small, self-contained piece of work. Continue from the first unchecked one.
@@ -11,36 +11,36 @@ Each milestone is a small, self-contained piece of work. Continue from the first
 - Brand system (palette, Cormorant Garamond + Manrope, radii, shadows, focus rings, reduced motion).
 - Story homepage: hero with photo carousel, pain points, three capabilities, Obsidian-style
   location graph (“Every stay, connected.”), AI workflow + product preview, safety section, CTA, footer.
-- Workspace shell and six screens: Overview, AI Assistant (six-section result, Copy / Edit draft /
+- Workspace shell and seven screens: Overview, AI Assistant (six-section result, Copy / Edit draft /
   Save changes / Mark as reviewed), Tasks (cards/table, search, filters, draft + status edit),
   Procedures, Properties, Activity Logs.
-- All data comes from `src/lib/fixtures.ts` and is labelled “Demo data” on screen.
+- The homepage keeps a clearly labelled sample location graph; workspace screens now use live Softr data.
 
-## Milestone 2 — Softr read layer
+## ✅ Milestone 2 — Softr read layer
 
-- `netlify/functions/_lib/softr.ts`: fetch wrapper for `https://tables-api.softr.io/api/v1`
+- `netlify/functions/_lib/softr.mts`: fetch wrapper for `https://tables-api.softr.io/api/v1`
   with the `Softr-Api-Key` header from `SOFTR_TOKEN`; reads use `fieldNames=true`; maps
   401/403/429/5xx to safe, user-facing errors (no token or raw body in logs).
-- A field map module (Softr field IDs ↔ app names) for Tasks, Procedures, Activity Logs, Properties,
-  confirmed against the real tables.
-- `GET` functions: `properties`, `tasks`, `procedures`, `activity-logs`, `task?id=`.
+- A field map and normaliser for all six tables: Properties, Users, Procedures, Tasks,
+  Activity Logs and Customers, confirmed against the real database.
+- `GET` functions for all six tables plus `dashboard` and `task?id=`.
 - Simple pagination and short CDN caching on read endpoints.
 
-## Milestone 3 — Wire screens to live data
+## ✅ Milestone 3 — Wire screens to live data
 
 - Replace `fixtures.ts` imports with a small client (`src/lib/api.ts`) calling `/.netlify/functions/*`.
 - Loading skeletons, empty states, error states with retry on every screen.
 - Remove the “Demo data” badge on screens backed by Softr; keep `Demo location network` on the
   graph until Properties has `province` / `city` fields.
-- Overview counts computed from real Tasks only.
+- Overview and Analytics metrics computed from live Tasks, Properties, Procedures, Customers and logs.
 
-## Milestone 4 — Task editing
+## ✅ Milestone 4 — Task editing
 
 - `PATCH task-draft`: validates task ID, `draft_response` (≤ 2000 chars) and status (allowed list);
   writes using Softr **field IDs**; never touches the original AI fields.
 - Appends a Staff entry to Activity Logs for every edit / status change / “Mark as reviewed”.
 
-## Milestone 5 — AI Assistant pipeline
+## ✅ Milestone 5 — AI Assistant pipeline (implementation complete; live-key verification pending)
 
 - `POST assistant`: validate property + question (length limits) → create Task in Softr → read
   that property’s Procedures → call DeepSeek (`DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL`, key from
@@ -61,3 +61,4 @@ Each milestone is a small, self-contained piece of work. Continue from the first
 
 - Rate limiting on `assistant`, input sanitisation review, error-path tests, README test checklist
   run against the real Softr base.
+

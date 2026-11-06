@@ -21,13 +21,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ApprovalTag, PageHeader, TypeBadge } from '@/components/app/PageHeader'
+import { DataState } from '@/components/app/DataState'
 import { RichText, stripBold } from '@/components/brand/RichText'
-import {
-  DEMO_PROPERTIES,
-  EXAMPLE_QUESTIONS,
-  runDemoAssistant,
-  type AssistantResult,
-} from '@/lib/fixtures'
+import { askAssistant, updateTask } from '@/lib/api'
+import { useStayOpsData } from '@/lib/data-context'
+import { EXAMPLE_QUESTIONS, type AssistantResult } from '@/lib/domain'
 
 export const Route = createFileRoute('/app/assistant')({
   component: AssistantPage,
@@ -37,6 +35,7 @@ const MAX_QUESTION = 1200
 type Phase = 'idle' | 'processing' | 'success' | 'error'
 
 function AssistantPage() {
+  const { data, loading, error, refresh } = useStayOpsData()
   const [propertyId, setPropertyId] = useState('')
   const [question, setQuestion] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
@@ -58,7 +57,7 @@ function AssistantPage() {
     setEditing(false)
     setReviewed(false)
     try {
-      const r = await runDemoAssistant(propertyId, q)
+      const r = await askAssistant(propertyId, q)
       setResult(r)
       setDraft(r.guest_reply)
       setPhase('success')
@@ -66,6 +65,9 @@ function AssistantPage() {
       setPhase('error')
     }
   }
+
+  if (loading && !data) return <DataState loading />
+  if (error || !data) return <DataState error={error || 'No data returned.'} retry={refresh} />
 
   return (
     <>
@@ -88,7 +90,7 @@ function AssistantPage() {
                 <SelectValue placeholder="Select a property" />
               </SelectTrigger>
               <SelectContent>
-                {DEMO_PROPERTIES.map((p) => (
+                {data.properties.map((p) => (
                   <SelectItem key={p.property_id} value={p.property_id}>
                     {p.name} · {p.city}
                   </SelectItem>
@@ -123,7 +125,7 @@ function AssistantPage() {
               type="button"
               onClick={() => {
                 setQuestion(q)
-                if (!propertyId) setPropertyId('P-HZ-01')
+                if (!propertyId && data.properties[0]) setPropertyId(data.properties[0].property_id)
               }}
               className="rounded-full border border-border bg-ivory/60 px-3 py-1.5 text-left text-xs text-stone transition-colors hover:border-champagne hover:text-walnut"
             >
@@ -270,11 +272,17 @@ function AssistantPage() {
                     <Button
                       size="sm"
                       className="rounded-full"
-                      onClick={() => {
+                      onClick={async () => {
                         if (!draft.trim()) return toast.error('The reply can’t be empty')
-                        setEditing(false)
-                        setReviewed(false)
-                        toast.success('Changes saved to the draft (demo)')
+                        try {
+                          await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: 'Edited the AI guest reply draft' })
+                          setEditing(false)
+                          setReviewed(false)
+                          await refresh()
+                          toast.success('Changes saved and logged')
+                        } catch (reason) {
+                          toast.error(reason instanceof Error ? reason.message : 'Could not save the draft')
+                        }
                       }}
                     >
                       <Save aria-hidden="true" /> Save changes
@@ -315,9 +323,15 @@ function AssistantPage() {
               <Button
                 className="h-11 rounded-full px-6"
                 disabled={reviewed || editing}
-                onClick={() => {
-                  setReviewed(true)
-                  toast.success('Marked as reviewed (demo)')
+                onClick={async () => {
+                  try {
+                    await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: 'Reviewed and approved the AI reply draft' })
+                    setReviewed(true)
+                    await refresh()
+                    toast.success('Marked as reviewed and logged')
+                  } catch (reason) {
+                    toast.error(reason instanceof Error ? reason.message : 'Could not mark this task as reviewed')
+                  }
                 }}
               >
                 <CheckCircle2 aria-hidden="true" />
@@ -365,3 +379,4 @@ function ResultCard({
     </article>
   )
 }
+

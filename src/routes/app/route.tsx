@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import {
   Building2,
+  ChartNoAxesCombined,
   ClipboardList,
   History,
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
 import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { DataProvider } from '@/lib/data-context'
 
 export const Route = createFileRoute('/app')({
   component: AppLayout,
@@ -22,6 +24,7 @@ const ITEMS = [
   { to: '/app/tasks', label: 'Tasks', icon: ClipboardList },
   { to: '/app/procedures', label: 'Procedures', icon: ScrollText },
   { to: '/app/properties', label: 'Properties', icon: Building2 },
+  { to: '/app/analytics', label: 'Analytics', icon: ChartNoAxesCombined },
   { to: '/app/activity', label: 'Activity Logs', icon: History },
 ] as const
 
@@ -79,9 +82,10 @@ function AppLayout() {
 
       <main className="min-w-0 px-4 py-8 sm:px-8 lg:py-10">
         <div className="mx-auto max-w-6xl">
-          <Outlet />
+          <DataProvider><Outlet /></DataProvider>
         </div>
       </main>
     </div>
   )
 }
+

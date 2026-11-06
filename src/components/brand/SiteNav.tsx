@@ -10,6 +10,7 @@ export const APP_NAV = [
   { to: '/app/tasks', label: 'Tasks' },
   { to: '/app/procedures', label: 'Procedures' },
   { to: '/app/properties', label: 'Properties' },
+  { to: '/app/analytics', label: 'Analytics' },
   { to: '/app/activity', label: 'Activity Logs' },
 ] as const
 
@@ -110,3 +111,4 @@ export function SiteFooter() {
     </footer>
   )
 }
+

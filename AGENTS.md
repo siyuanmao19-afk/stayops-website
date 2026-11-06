@@ -2,7 +2,9 @@
 
 StayOps is a homestay operations app: a brand story homepage plus a staff workspace (Overview,
 AI Assistant, Tasks, Procedures, Properties, Activity Logs). **Continue from [PLAN.md](PLAN.md)**:
-milestone 1 (the product surface on demo data) is done. Next comes the Softr read layer.
+milestones 1–5 are implemented. The workspace now reads all six Softr tables, writes task edits and
+Activity Logs, exposes Analytics, and includes the DeepSeek pipeline. Live-key verification and
+hardening remain.
 
 ## Stack
 
@@ -43,3 +45,4 @@ public/img/                  ← hero photos (see README for the required filena
 
 PascalCase components, camelCase utilities, `@/` imports, strict TS (no unused vars). Every
 data screen needs loading, empty, error and success states. Use typed `<Link to>` routes.
+

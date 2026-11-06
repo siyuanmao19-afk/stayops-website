@@ -16,17 +16,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DataState } from '@/components/app/DataState'
 import { EmptyState, PageHeader, StatusBadge, TypeBadge } from '@/components/app/PageHeader'
 import { RichText } from '@/components/brand/RichText'
-import {
-  DEMO_PROPERTIES,
-  DEMO_TASKS,
-  TASK_STATUSES,
-  TASK_TYPES,
-  propertyById,
-  type Task,
-  type TaskStatus,
-} from '@/lib/fixtures'
+import { updateTask } from '@/lib/api'
+import { useStayOpsData } from '@/lib/data-context'
+import { TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from '@/lib/domain'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/app/tasks')({
@@ -36,7 +31,7 @@ export const Route = createFileRoute('/app/tasks')({
 const ALL = 'all'
 
 function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>(DEMO_TASKS)
+  const { data, loading, error, refresh, propertyById } = useStayOpsData()
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [query, setQuery] = useState('')
   const [property, setProperty] = useState(ALL)
@@ -46,14 +41,17 @@ function TasksPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return tasks.filter(
+    return (data?.tasks || []).filter(
       (t) =>
         (property === ALL || t.property_id === property) &&
         (type === ALL || t.task_type === type) &&
         (status === ALL || t.status === status) &&
         (!q || `${t.title} ${t.description} ${t.id} ${t.assigned_to}`.toLowerCase().includes(q)),
     )
-  }, [tasks, query, property, type, status])
+  }, [data, query, property, type, status])
+
+  if (loading && !data) return <DataState loading />
+  if (error || !data) return <DataState error={error || 'No data returned.'} retry={refresh} />
 
   return (
     <>
@@ -86,7 +84,7 @@ function TasksPage() {
           />
         </div>
         <Filter label="Property" allLabel="All properties" value={property} onChange={setProperty}
-          options={DEMO_PROPERTIES.map((p) => ({ value: p.property_id, label: p.name }))} />
+          options={data.properties.map((p) => ({ value: p.property_id, label: p.name }))} />
         <Filter label="Task type" allLabel="All task types" value={type} onChange={setType}
           options={TASK_TYPES.map((t) => ({ value: t, label: t }))} />
         <Filter label="Status" allLabel="All statuses" value={status} onChange={setStatus}
@@ -180,10 +178,15 @@ function TasksPage() {
       <EditDialog
         task={editing}
         onClose={() => setEditing(null)}
-        onSave={(id, draft, next) => {
-          setTasks((all) => all.map((t) => (t.id === id ? { ...t, draft_response: draft, status: next } : t)))
-          setEditing(null)
-          toast.success('Draft and status updated (demo)')
+        onSave={async (task, draft, next) => {
+          try {
+            await updateTask({ record_id: task.record_id, task_id: task.id, draft_response: draft, status: next })
+            setEditing(null)
+            await refresh()
+            toast.success('Draft, status and Activity Log updated')
+          } catch (reason) {
+            toast.error(reason instanceof Error ? reason.message : 'Could not update this task')
+          }
         }}
       />
     </>
@@ -197,10 +200,10 @@ function EditDialog({
 }: {
   task: Task | null
   onClose: () => void
-  onSave: (id: string, draft: string, status: TaskStatus) => void
+  onSave: (task: Task, draft: string, status: TaskStatus) => void | Promise<void>
 }) {
   const [draft, setDraft] = useState('')
-  const [status, setStatus] = useState<TaskStatus>('New')
+  const [status, setStatus] = useState<TaskStatus>('Open')
   const [lastId, setLastId] = useState<string | null>(null)
   if (task && task.id !== lastId) {
     setLastId(task.id)
@@ -236,7 +239,7 @@ function EditDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" className="rounded-full" onClick={() => { setLastId(null); onClose() }}>Cancel</Button>
-          <Button className="rounded-full" disabled={tooLong || !draft.trim()} onClick={() => { if (task) { setLastId(null); onSave(task.id, draft.trim(), status) } }}>
+          <Button className="rounded-full" disabled={tooLong || !draft.trim()} onClick={() => { if (task) { setLastId(null); void onSave(task, draft.trim(), status) } }}>
             Save changes
           </Button>
         </DialogFooter>
@@ -280,3 +283,4 @@ function ViewButton({ active, onClick, label, children }: { active: boolean; onC
     </button>
   )
 }
+

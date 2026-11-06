@@ -1,6 +1,8 @@
 [build]
   command = "vite build"
   publish = "dist/client"
+[functions]
+  directory = "netlify/functions"
 [build.environment]
   NODE_VERSION = "24"
 [dev]
@@ -8,3 +10,4 @@
   command = "npm run dev"
   targetPort = 3000
   port = 8888
+
