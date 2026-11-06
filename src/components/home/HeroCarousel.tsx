@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/language'
 
 /**
  * The three homestay photos supplied by the owner. Place the original files in
@@ -12,6 +13,7 @@ const SLIDES = [
     original: 'downloaded-image (1).png',
     alt: 'A homestay exterior at night, warm light glowing from its windows against a dark sky',
     caption: 'Calm operations, even after dark.',
+    captionZh: '夜幕降临，运营依然从容。',
     focus: 'object-[50%_55%] md:object-center',
   },
   {
@@ -19,6 +21,7 @@ const SLIDES = [
     original: '1a57e9292a5245a082c1405bd1b81d96.jpeg',
     alt: 'A wooden guest room with a large window looking out over a mountain village',
     caption: 'Local character, consistent service.',
+    captionZh: '保留在地温度，也保持服务标准。',
     focus: 'object-[60%_50%] md:object-center',
   },
   {
@@ -26,14 +29,15 @@ const SLIDES = [
     original: 'downloaded-image.png',
     alt: 'A bright, modern suite with a freestanding bathtub beside the bed',
     caption: 'Every detail prepared with care.',
+    captionZh: '每一个细节，都被认真照顾。',
     focus: 'object-[40%_50%] md:object-center',
   },
 ]
 
 const INTERVAL = 5500
 
-function cdn(file: string, w: number) {
-  return `/.netlify/images?url=/img/${encodeURIComponent(file)}&w=${w}&fm=webp&q=80`
+function imagePath(file: string) {
+  return `/img/${encodeURIComponent(file)}`
 }
 
 function usePrefersReducedMotion() {
@@ -49,6 +53,7 @@ function usePrefersReducedMotion() {
 }
 
 export function HeroCarousel() {
+  const { language, pick } = useLanguage()
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const [failed, setFailed] = useState<Record<number, boolean>>({})
@@ -79,7 +84,7 @@ export function HeroCarousel() {
   return (
     <section
       aria-roledescription="carousel"
-      aria-label="StayOps homestays"
+      aria-label={pick('StayOps homestays', 'StayOps 民宿展示')}
       className="relative"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -134,8 +139,7 @@ export function HeroCarousel() {
                   ref={(el) => {
                     imgRefs.current[i] = el
                   }}
-                  src={cdn(slide.file, 1200)}
-                  srcSet={`${cdn(slide.file, 640)} 640w, ${cdn(slide.file, 960)} 960w, ${cdn(slide.file, 1400)} 1400w`}
+                  src={imagePath(slide.file)}
                   sizes="(min-width: 1024px) 560px, 100vw"
                   alt={slide.alt}
                   loading={i === 0 ? 'eager' : 'lazy'}
@@ -164,18 +168,18 @@ export function HeroCarousel() {
           aria-live={autoplay ? 'off' : 'polite'}
           className="animate-rise-in absolute bottom-16 left-6 right-6 font-display text-2xl italic text-paper sm:text-3xl"
         >
-          {SLIDES[index].caption}
+          {language === 'zh' ? SLIDES[index].captionZh : SLIDES[index].caption}
         </p>
 
         <div className="absolute inset-x-6 bottom-6 flex items-center gap-3">
-          <div className="flex gap-2" role="tablist" aria-label="Choose slide">
+          <div className="flex gap-2" role="tablist" aria-label={pick('Choose slide', '选择图片')}>
             {SLIDES.map((s, i) => (
               <button
                 key={s.file}
                 type="button"
                 role="tab"
                 aria-selected={i === index}
-                aria-label={`Show slide ${i + 1}: ${s.caption}`}
+                aria-label={language === 'zh' ? `显示第 ${i + 1} 张图片：${s.captionZh}` : `Show slide ${i + 1}: ${s.caption}`}
                 onClick={() => go(i)}
                 className={cn(
                   'h-2 rounded-full transition-all',
@@ -196,7 +200,7 @@ export function HeroCarousel() {
           <div className="flex gap-1.5">
             <button
               type="button"
-              aria-label="Previous slide"
+              aria-label={pick('Previous slide', '上一张图片')}
               onClick={() => go(index - 1)}
               className="grid size-9 place-items-center rounded-full bg-paper/15 text-paper backdrop-blur-sm transition-colors hover:bg-paper/30"
             >
@@ -204,7 +208,7 @@ export function HeroCarousel() {
             </button>
             <button
               type="button"
-              aria-label="Next slide"
+              aria-label={pick('Next slide', '下一张图片')}
               onClick={() => go(index + 1)}
               className="grid size-9 place-items-center rounded-full bg-paper/15 text-paper backdrop-blur-sm transition-colors hover:bg-paper/30"
             >
@@ -216,3 +220,4 @@ export function HeroCarousel() {
     </section>
   )
 }
+

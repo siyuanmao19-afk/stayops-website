@@ -1,20 +1,40 @@
 import { Link } from '@tanstack/react-router'
-import { Menu } from 'lucide-react'
+import { Languages, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Logo } from './Logo'
+import { useLanguage } from '@/lib/language'
 
 export const APP_NAV = [
-  { to: '/app', label: 'Overview' },
-  { to: '/app/assistant', label: 'AI Assistant' },
-  { to: '/app/tasks', label: 'Tasks' },
-  { to: '/app/procedures', label: 'Procedures' },
-  { to: '/app/properties', label: 'Properties' },
-  { to: '/app/analytics', label: 'Analytics' },
-  { to: '/app/activity', label: 'Activity Logs' },
+  { to: '/app', label: 'Overview', labelZh: '概览' },
+  { to: '/app/assistant', label: 'AI Assistant', labelZh: 'AI 助手' },
+  { to: '/app/tasks', label: 'Tasks', labelZh: '任务' },
+  { to: '/app/procedures', label: 'Procedures', labelZh: '操作规范' },
+  { to: '/app/properties', label: 'Properties', labelZh: '房源' },
+  { to: '/app/analytics', label: 'Analytics', labelZh: '数据分析' },
+  { to: '/app/activity', label: 'Activity Logs', labelZh: '活动日志' },
 ] as const
 
+export function LanguageToggle({ compact = false }: { compact?: boolean }) {
+  const { language, toggleLanguage, pick } = useLanguage()
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size={compact ? 'icon' : 'sm'}
+      onClick={toggleLanguage}
+      aria-label={pick('Switch to Chinese', '切换到英文')}
+      title={pick('切换中文', 'Switch to English')}
+      className={compact ? 'rounded-full' : 'rounded-full border-walnut/20 bg-paper/70'}
+    >
+      <Languages className="size-4" />
+      {!compact && <span>{language === 'en' ? '中文' : 'EN'}</span>}
+    </Button>
+  )
+}
+
 export function SiteNav() {
+  const { language, pick } = useLanguage()
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-ivory/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-content items-center justify-between gap-6 px-4 sm:px-6">
@@ -29,19 +49,20 @@ export function SiteNav() {
                   to={item.to}
                   className="rounded-full px-3 py-2 text-sm font-medium text-stone transition-colors hover:bg-sand/40 hover:text-walnut"
                 >
-                  {item.label}
+                  {language === 'zh' ? item.labelZh : item.label}
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
         <div className="flex items-center gap-2">
+          <LanguageToggle />
           <Button asChild className="hidden h-10 rounded-full px-5 sm:inline-flex">
-            <Link to="/app">Open Workspace</Link>
+            <Link to="/app">{pick('Open Workspace', '打开工作台')}</Link>
           </Button>
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
+              <Button variant="ghost" size="icon" className="lg:hidden" aria-label={pick('Open menu', '打开菜单')}>
                 <Menu />
               </Button>
             </SheetTrigger>
@@ -55,11 +76,11 @@ export function SiteNav() {
                     to={item.to}
                     className="rounded-xl px-3 py-3 font-medium text-walnut hover:bg-sand/40"
                   >
-                    {item.label}
+                    {language === 'zh' ? item.labelZh : item.label}
                   </Link>
                 ))}
                 <Button asChild className="mt-4 h-11 rounded-full">
-                  <Link to="/app">Open Workspace</Link>
+                  <Link to="/app">{pick('Open Workspace', '打开工作台')}</Link>
                 </Button>
               </div>
             </SheetContent>
@@ -71,35 +92,38 @@ export function SiteNav() {
 }
 
 export function SiteFooter() {
+  const { language, pick } = useLanguage()
   return (
     <footer className="border-t border-border bg-paper">
       <div className="mx-auto grid max-w-content gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
         <div className="space-y-3">
           <Logo />
-          <p className="font-display text-xl italic text-coffee">Manage Your Homestay Smarter</p>
+          <p className="font-display text-xl italic text-coffee">{pick('Manage Your Homestay Smarter', '让民宿运营更聪明')}</p>
           <p className="max-w-sm text-sm text-stone">
-            A calm operations workspace for homestays: guest enquiries, house procedures and staff
-            actions in one reviewed, auditable flow.
+            {pick(
+              'A calm operations workspace for homestays: guest enquiries, house procedures and staff actions in one reviewed, auditable flow.',
+              '一个从容、清晰的民宿运营工作台，把客人咨询、房源规范和员工操作放进可审核、可追踪的流程。',
+            )}
           </p>
         </div>
         <div>
-          <p className="eyebrow mb-4 text-champagne">Workspace</p>
+          <p className="eyebrow mb-4 text-champagne">{pick('Workspace', '工作台')}</p>
           <ul className="space-y-2 text-sm">
             {APP_NAV.map((item) => (
               <li key={item.to}>
                 <Link to={item.to} className="text-stone hover:text-walnut">
-                  {item.label}
+                  {language === 'zh' ? item.labelZh : item.label}
                 </Link>
               </li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="eyebrow mb-4 text-champagne">Principles</p>
+          <p className="eyebrow mb-4 text-champagne">{pick('Principles', '设计原则')}</p>
           <ul className="space-y-2 text-sm text-stone">
-            <li>AI drafts, people decide</li>
-            <li>Every action logged</li>
-            <li>Keys stay on the server</li>
+            <li>{pick('AI drafts, people decide', 'AI 起草，员工决定')}</li>
+            <li>{pick('Every action logged', '每一步操作都有记录')}</li>
+            <li>{pick('Keys stay on the server', '密钥只保存在服务器')}</li>
           </ul>
         </div>
       </div>

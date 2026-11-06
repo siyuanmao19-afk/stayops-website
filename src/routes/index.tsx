@@ -17,6 +17,7 @@ import { HeroCarousel } from '@/components/home/HeroCarousel'
 import { LocationGraph } from '@/components/home/LocationGraph'
 import { RichText } from '@/components/brand/RichText'
 import { DemoBadge } from '@/components/brand/DemoBadge'
+import { useLanguage } from '@/lib/language'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -63,7 +64,31 @@ const FLOW = [
   { step: '05', title: 'Logged & approved', body: 'Edits, approvals and the final action are written to Activity Logs.' },
 ]
 
+const PAINS_ZH = [
+  { title: '消息从各个平台涌入', body: '客人问题来自聊天软件、预订平台和电话，夜间最紧急的信息尤其容易被遗漏。' },
+  { title: '操作流程只存在于员工经验里', body: '不同房源有各自的退房、维修和退款规则。新员工只能猜测，老员工则不断被打断。' },
+  { title: '处理过程难以追踪', body: '客人再次询问时，很难快速确认谁回复过、承诺了什么，以及负责人是否批准。' },
+]
+
+const CAPABILITIES_ZH = [
+  { icon: MessageSquareText, title: '客情洞察', body: '集中整理客人问题与反馈，快速识别最需要优先处理的事项。' },
+  { icon: BookOpenCheck, title: '基于规范的 AI', body: '按照房源自己的操作流程和审批规则匹配建议，不编造不存在的规范。' },
+  { icon: Workflow, title: '清晰的运营流程', body: '把任务、回复草稿和每一步处理记录集中在同一个可追踪流程中。' },
+]
+
+const FLOW_ZH = [
+  { step: '01', title: '录入客人问题', body: '员工选择房源，并粘贴客人的原始消息。' },
+  { step: '02', title: '自动创建任务', body: 'StayOps 先保存任务，即使 AI 暂时不可用，问题也不会丢失。' },
+  { step: '03', title: '匹配操作规范', body: 'AI 只能引用该房源真实存在的操作流程。' },
+  { step: '04', title: '生成审核草稿', body: '提供处理建议和礼貌回复，并明确标记为待审核草稿。' },
+  { step: '05', title: '记录与审批', body: '员工修改、审批和最终操作都会写入活动日志。' },
+]
+
 function Home() {
+  const { language, pick } = useLanguage()
+  const pains = language === 'zh' ? PAINS_ZH : PAINS
+  const capabilities = language === 'zh' ? CAPABILITIES_ZH : CAPABILITIES
+  const flow = language === 'zh' ? FLOW_ZH : FLOW
   return (
     <div className="min-h-screen bg-ivory">
       <SiteNav />
@@ -75,19 +100,21 @@ function Home() {
             <div className="animate-rise-in">
               <p className="eyebrow inline-flex items-center gap-2 rounded-full border border-champagne/40 bg-paper/70 px-3 py-1.5 text-coffee">
                 <Sparkles className="size-3.5 text-champagne" aria-hidden="true" />
-                AI-assisted homestay operations
+                {pick('AI-assisted homestay operations', 'AI 驱动的民宿运营')}
               </p>
               <h1 className="mt-6 text-5xl font-semibold leading-[1.02] text-walnut sm:text-6xl lg:text-7xl">
-                Run every stay with calm, clarity and care.
+                {pick('Run every stay with calm, clarity and care.', '让每一次入住，都从容、清晰而有温度。')}
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-stone">
-                StayOps brings guest enquiries, operating procedures and staff actions into one warm,
-                intelligent workspace.
+                {pick(
+                  'StayOps brings guest enquiries, operating procedures and staff actions into one warm, intelligent workspace.',
+                  'StayOps 将客人咨询、操作规范和员工行动集中在一个温馨、智能的工作台中。',
+                )}
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <Button asChild size="lg" className="h-12 rounded-full px-7 text-[0.95rem]">
                   <Link to="/app/assistant">
-                    Try the AI Assistant <ArrowRight aria-hidden="true" />
+                    {pick('Try the AI Assistant', '体验 AI 助手')} <ArrowRight aria-hidden="true" />
                   </Link>
                 </Button>
                 <Button
@@ -96,10 +123,10 @@ function Home() {
                   variant="outline"
                   className="h-12 rounded-full border-walnut/20 bg-paper/60 px-7 text-[0.95rem] text-walnut"
                 >
-                  <a href="#workflow">Explore the workflow</a>
+                  <a href="#workflow">{pick('Explore the workflow', '了解处理流程')}</a>
                 </Button>
               </div>
-              <p className="mt-8 font-display text-lg italic text-coffee">Manage Your Homestay Smarter</p>
+              <p className="mt-8 font-display text-lg italic text-coffee">{pick('Manage Your Homestay Smarter', '让民宿运营更聪明')}</p>
             </div>
             <HeroCarousel />
           </div>
@@ -108,12 +135,12 @@ function Home() {
         {/* Pain points */}
         <section aria-labelledby="pains" className="border-y border-border/70 bg-paper">
           <div className="mx-auto max-w-content px-4 py-20 sm:px-6">
-            <p className="eyebrow text-champagne">The daily reality</p>
+            <p className="eyebrow text-champagne">{pick('The daily reality', '日常运营现实')}</p>
             <h2 id="pains" className="mt-3 max-w-2xl text-4xl font-semibold text-walnut sm:text-5xl">
-              Small houses, many moving parts.
+              {pick('Small houses, many moving parts.', '房子不大，运营环节却很多。')}
             </h2>
             <div className="mt-12 grid gap-px overflow-hidden rounded-3xl border border-border bg-border md:grid-cols-3">
-              {PAINS.map((p, i) => (
+              {pains.map((p, i) => (
                 <div key={p.title} className="bg-paper p-8">
                   <span className="font-display text-3xl text-champagne">0{i + 1}</span>
                   <h3 className="mt-4 text-2xl font-semibold text-walnut">{p.title}</h3>
@@ -127,13 +154,13 @@ function Home() {
         {/* Capabilities */}
         <section aria-labelledby="capabilities" className="mx-auto max-w-content px-4 py-24 sm:px-6">
           <div className="max-w-2xl">
-            <p className="eyebrow text-champagne">What StayOps does</p>
+            <p className="eyebrow text-champagne">{pick('What StayOps does', 'StayOps 能做什么')}</p>
             <h2 id="capabilities" className="mt-3 text-4xl font-semibold text-walnut sm:text-5xl">
-              Three quiet capabilities, working together.
+              {pick('Three quiet capabilities, working together.', '三种核心能力，协同完成运营工作。')}
             </h2>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {CAPABILITIES.map(({ icon: Icon, title, body }) => (
+            {capabilities.map(({ icon: Icon, title, body }) => (
               <article
                 key={title}
                 className="group rounded-3xl border border-border bg-paper p-8 shadow-soft transition-shadow hover:shadow-lift"
@@ -152,13 +179,15 @@ function Home() {
         <section aria-labelledby="network" className="bg-walnut/[0.03] py-24">
           <div className="mx-auto max-w-content px-4 sm:px-6">
             <div className="mb-10 max-w-2xl">
-              <p className="eyebrow text-champagne">Properties</p>
+              <p className="eyebrow text-champagne">{pick('Properties', '房源网络')}</p>
               <h2 id="network" className="mt-3 text-4xl font-semibold text-walnut sm:text-5xl">
-                Every stay, connected.
+                {pick('Every stay, connected.', '连接每一处房源与每一次入住。')}
               </h2>
               <p className="mt-4 text-lg text-stone">
-                See your homestay network by province and city — which houses are operating, and where
-                tasks are waiting.
+                {pick(
+                  'See your homestay network by province and city — which houses are operating, and where tasks are waiting.',
+                  '按省份和城市查看民宿网络，了解哪些房源正在运营，以及哪里还有待处理任务。',
+                )}
               </p>
             </div>
             <LocationGraph />
@@ -169,16 +198,18 @@ function Home() {
         <section id="workflow" aria-labelledby="workflow-title" className="scroll-mt-20 mx-auto max-w-content px-4 py-24 sm:px-6">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
-              <p className="eyebrow text-champagne">AI workflow</p>
+              <p className="eyebrow text-champagne">{pick('AI workflow', 'AI 处理流程')}</p>
               <h2 id="workflow-title" className="mt-3 text-4xl font-semibold text-walnut sm:text-5xl">
-                From a guest message to a reviewed answer.
+                {pick('From a guest message to a reviewed answer.', '从客人消息，到员工审核后的回复。')}
               </h2>
               <p className="mt-4 text-lg text-stone">
-                Every request follows the same path, so every shift works the same way — and every step
-                leaves a record.
+                {pick(
+                  'Every request follows the same path, so every shift works the same way — and every step leaves a record.',
+                  '每个请求都按照相同流程处理，让不同班次保持一致，并为每一步留下记录。',
+                )}
               </p>
               <ol className="mt-10 space-y-5">
-                {FLOW.map((f) => (
+                {flow.map((f) => (
                   <li key={f.step} className="flex gap-4">
                     <span className="mt-0.5 font-display text-xl font-semibold text-champagne">{f.step}</span>
                     <div>
@@ -226,17 +257,22 @@ function Home() {
         {/* Safety */}
         <section aria-labelledby="safety" className="bg-night text-sand">
           <div className="mx-auto max-w-content px-4 py-24 sm:px-6">
-            <p className="eyebrow text-champagne">Trust by design</p>
+            <p className="eyebrow text-champagne">{pick('Trust by design', '可信赖的设计')}</p>
             <h2 id="safety" className="mt-3 max-w-2xl text-4xl font-semibold text-paper sm:text-5xl">
-              AI drafts. People decide.
+              {pick('AI drafts. People decide.', 'AI 起草，员工决定。')}
             </h2>
             <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {[
+              {(language === 'zh' ? [
+                { icon: UserCheck, t: '人工审核', b: '任何回复都不会自动发送，必须由员工检查并确认。' },
+                { icon: ShieldCheck, t: '不做高风险承诺', b: '退款、赔偿和价格问题始终需要升级审批，AI 不会擅自承诺。' },
+                { icon: ScrollText, t: '完整操作记录', b: 'AI 分析、员工修改和最终操作都会记录时间与执行人。' },
+                { icon: KeyRound, t: '密钥保存在服务器', b: '数据库与 AI 密钥只存在于安全的服务端函数中，不会暴露给浏览器。' },
+              ] : [
                 { icon: UserCheck, t: 'Human review', b: 'Nothing is sent to a guest until a staff member reviews and approves it.' },
                 { icon: ShieldCheck, t: 'No risky promises', b: 'Refunds, compensation and prices are always escalated, never offered by AI.' },
                 { icon: ScrollText, t: 'Full audit trail', b: 'AI analysis, staff edits and final actions are each logged with time and actor.' },
                 { icon: KeyRound, t: 'Keys stay server-side', b: 'Database and AI credentials live only in secure server functions, never in the browser.' },
-              ].map(({ icon: Icon, t, b }) => (
+              ]).map(({ icon: Icon, t, b }) => (
                 <div key={t} className="rounded-3xl border border-champagne/15 bg-paper/[0.03] p-6">
                   <Icon className="size-6 text-champagne" aria-hidden="true" />
                   <h3 className="mt-5 text-xl font-semibold text-paper">{t}</h3>
@@ -253,14 +289,14 @@ function Home() {
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(198,154,82,0.28),transparent)]" />
             <ClipboardList className="relative mx-auto size-8 text-champagne" aria-hidden="true" />
             <h2 className="relative mt-5 text-4xl font-semibold text-paper sm:text-5xl">
-              Bring calm to the next shift.
+              {pick('Bring calm to the next shift.', '让下一班员工从容接手。')}
             </h2>
             <p className="relative mx-auto mt-4 max-w-xl text-sand/80">
-              Open the workspace to see today’s tasks, or ask the assistant about a real guest message.
+              {pick('Open the workspace to see today’s tasks, or ask the assistant about a real guest message.', '打开工作台查看今日任务，或把真实客人问题交给 AI 助手分析。')}
             </p>
             <div className="relative mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild size="lg" className="h-12 rounded-full bg-champagne px-7 text-walnut hover:bg-sand">
-                <Link to="/app">Open Workspace</Link>
+                <Link to="/app">{pick('Open Workspace', '打开工作台')}</Link>
               </Button>
               <Button
                 asChild
@@ -268,7 +304,7 @@ function Home() {
                 variant="outline"
                 className="h-12 rounded-full border-sand/30 bg-transparent px-7 text-sand hover:bg-paper/10 hover:text-paper"
               >
-                <Link to="/app/assistant">Try the AI Assistant</Link>
+                <Link to="/app/assistant">{pick('Try the AI Assistant', '体验 AI 助手')}</Link>
               </Button>
             </div>
           </div>
@@ -289,3 +325,4 @@ function PreviewCard({ label, text, wide }: { label: string; text: string; wide?
     </div>
   )
 }
+

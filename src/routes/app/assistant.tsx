@@ -26,6 +26,7 @@ import { RichText, stripBold } from '@/components/brand/RichText'
 import { askAssistant, updateTask } from '@/lib/api'
 import { useStayOpsData } from '@/lib/data-context'
 import { EXAMPLE_QUESTIONS, type AssistantResult } from '@/lib/domain'
+import { useLanguage } from '@/lib/language'
 
 export const Route = createFileRoute('/app/assistant')({
   component: AssistantPage,
@@ -35,6 +36,7 @@ const MAX_QUESTION = 1200
 type Phase = 'idle' | 'processing' | 'success' | 'error'
 
 function AssistantPage() {
+  const { language, pick } = useLanguage()
   const { data, loading, error, refresh } = useStayOpsData()
   const [propertyId, setPropertyId] = useState('')
   const [question, setQuestion] = useState('')
@@ -57,7 +59,7 @@ function AssistantPage() {
     setEditing(false)
     setReviewed(false)
     try {
-      const r = await askAssistant(propertyId, q)
+      const r = await askAssistant(propertyId, q, language)
       setResult(r)
       setDraft(r.guest_reply)
       setPhase('success')
@@ -84,10 +86,10 @@ function AssistantPage() {
       >
         <div className="grid gap-5 md:grid-cols-[260px_1fr]">
           <div className="space-y-2">
-            <Label htmlFor="property">Property</Label>
+            <Label htmlFor="property">{pick('Property', '房源')}</Label>
             <Select value={propertyId} onValueChange={setPropertyId}>
               <SelectTrigger id="property" className="h-11 w-full rounded-xl bg-ivory/50">
-                <SelectValue placeholder="Select a property" />
+                <SelectValue placeholder={pick('Select a property', '请选择房源')} />
               </SelectTrigger>
               <SelectContent>
                 {data.properties.map((p) => (
@@ -100,7 +102,7 @@ function AssistantPage() {
           </div>
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
-              <Label htmlFor="question">Guest request</Label>
+              <Label htmlFor="question">{pick('Guest request', '客人问题或需求')}</Label>
               <span className="text-xs text-stone">
                 {question.length}/{MAX_QUESTION}
               </span>
@@ -110,7 +112,7 @@ function AssistantPage() {
               value={question}
               maxLength={MAX_QUESTION}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. Guest in Room 3 asks if they can check out at 15:00 tomorrow…"
+              placeholder={pick('e.g. Guest in Room 3 asks if they can check out at 15:00 tomorrow…', '例如：3 号房客人询问明天是否可以延迟到 15:00 退房……')}
               className="min-h-28 rounded-xl bg-ivory/50"
               aria-invalid={!!fieldError}
               aria-describedby={fieldError ? 'form-error' : undefined}
@@ -118,7 +120,7 @@ function AssistantPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2" aria-label="Example questions">
+        <div className="mt-4 flex flex-wrap gap-2" aria-label={pick('Example questions', '示例问题')}>
           {EXAMPLE_QUESTIONS.map((q) => (
             <button
               key={q}
@@ -141,7 +143,7 @@ function AssistantPage() {
             </p>
           ) : (
             <p className="text-xs text-stone">
-              A task is created for every request, so nothing gets lost.
+              {pick('A task is created for every request, so nothing gets lost.', '每次提交都会创建任务，确保问题不会遗漏。')}
             </p>
           )}
           <Button
@@ -154,23 +156,23 @@ function AssistantPage() {
             ) : (
               <Sparkles aria-hidden="true" />
             )}
-            Ask StayOps AI
+            {pick('Ask StayOps AI', '询问 StayOps AI')}
           </Button>
         </div>
       </form>
 
       <p className="mt-5 flex items-center gap-2 rounded-2xl border border-terracotta/20 bg-terracotta/[0.06] px-4 py-3 text-sm text-terracotta">
         <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-        AI output is a draft. Staff must review it before taking action or replying.
+        {pick('AI output is a draft. Staff must review it before taking action or replying.', 'AI 输出仅为草稿，员工必须审核后才能采取行动或回复客人。')}
       </p>
 
       <section aria-live="polite" aria-busy={phase === 'processing'} className="mt-8">
         {phase === 'idle' && (
           <div className="rounded-3xl border border-dashed border-champagne/40 bg-paper/50 px-6 py-14 text-center">
             <MessageSquareQuote className="mx-auto size-8 text-champagne" aria-hidden="true" />
-            <p className="mt-4 font-display text-2xl font-semibold text-walnut">Ready when a guest is</p>
+            <p className="mt-4 font-display text-2xl font-semibold text-walnut">{pick('Ready when a guest is', '随时准备处理客人问题')}</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-stone">
-              Choose a property and describe the request. The analysis appears here in six clear sections.
+              {pick('Choose a property and describe the request. The analysis appears here in six clear sections.', '选择房源并描述客人需求，AI 分析将以六个清晰部分显示在这里。')}
             </p>
           </div>
         )}
@@ -179,7 +181,7 @@ function AssistantPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-2xl bg-paper p-4 text-sm text-coffee shadow-soft">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              Creating the task, reading this property’s procedures and drafting a response…
+              {pick('Creating the task, reading this property’s procedures and drafting a response…', '正在创建任务、读取该房源的操作规范并生成回复草稿……')}
             </div>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-28 animate-pulse rounded-3xl bg-paper/80 motion-reduce:animate-none" />
@@ -189,9 +191,9 @@ function AssistantPage() {
 
         {phase === 'error' && (
           <div role="alert" className="rounded-3xl border border-terracotta/30 bg-paper p-6">
-            <p className="font-semibold text-terracotta">The assistant couldn’t finish this request.</p>
+            <p className="font-semibold text-terracotta">{pick('The assistant couldn’t finish this request.', 'AI 助手未能完成这次请求。')}</p>
             <p className="mt-1 text-sm text-stone">
-              Your task was kept. Try again in a moment, or handle it manually from Tasks.
+              {pick('Your task was kept. Try again in a moment, or handle it manually from Tasks.', '任务已经保留，请稍后重试，或前往任务页面手动处理。')}
             </p>
           </div>
         )}

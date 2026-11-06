@@ -36,10 +36,10 @@ export function updateTask(input: {
   })
 }
 
-export function askAssistant(property_id: string, question: string) {
+export function askAssistant(property_id: string, question: string, language: 'en' | 'zh' = 'en') {
   return request<AssistantResult>('assistant', {
     method: 'POST',
-    body: JSON.stringify({ property_id, question }),
+    body: JSON.stringify({ property_id, question, language }),
   })
 }
 

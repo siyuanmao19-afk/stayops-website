@@ -27,6 +27,7 @@ export default async (request: Request) => {
     const body = await request.json() as Record<string, unknown>
     const propertyId = String(body.property_id || '').trim()
     const question = String(body.question || '').trim()
+    const language = body.language === 'zh' ? 'zh' : 'en'
     if (!propertyId) return json({ error: 'Choose a property.' }, 400)
     if (question.length < 8 || question.length > 1200) {
       return json({ error: 'Guest request must contain 8–1200 characters.' }, 400)
@@ -79,7 +80,7 @@ export default async (request: Request) => {
         messages: [
           {
             role: 'system',
-            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must be one of: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. procedure_id must be one supplied ID or N/A. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. summary should be 2-3 sentences, staff_action 4-6 sentences, guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields.`,
+            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must remain one of these exact English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. procedure_id must be one supplied ID or N/A. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. summary should be 2-3 sentences, staff_action 4-6 sentences, guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields. Write title, task_type_reason, summary, staff_action and guest_reply in ${language === 'zh' ? 'Simplified Chinese' : 'English'}.`,
           },
           {
             role: 'user',
@@ -135,7 +136,9 @@ export default async (request: Request) => {
       procedure: matched?.item || null,
       staff_action: staffAction,
       guest_reply: guestReply,
-      handling_record: 'This analysis was saved to **Activity Logs** and linked to the task. Staff edits and the final status are recorded as separate entries, preserving a complete **audit trail**.',
+      handling_record: language === 'zh'
+        ? '本次分析已保存到 **活动日志** 并关联到对应任务。员工修改和最终状态会作为独立记录保存，从而形成完整的 **审计轨迹**。'
+        : 'This analysis was saved to **Activity Logs** and linked to the task. Staff edits and the final status are recorded as separate entries, preserving a complete **audit trail**.',
     } })
   } catch (reason) {
     if (taskRecordId) {
