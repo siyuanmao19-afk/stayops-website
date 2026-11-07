@@ -4,7 +4,11 @@ import { toEnglish } from './_lib/translate.mts'
 
 const STATUS = new Set(['Open', 'In Progress', 'Pending Approval', 'Escalated', 'Draft Ready', 'Resolved'])
 
-export default async (request: Request) => {
+type NetlifyContext = {
+  waitUntil(promise: Promise<unknown>): void
+}
+
+export default async (request: Request, context: NetlifyContext) => {
   if (request.method !== 'PATCH') return methodNotAllowed(['PATCH'])
   try {
     const body = await request.json() as Record<string, unknown>
@@ -23,16 +27,21 @@ export default async (request: Request) => {
       [FIELD_IDS.tasks.status]: status,
     })
     const action = (await toEnglish(String(body.action || `Updated reply draft and set status to ${status}`).trim())).slice(0, 1000)
-    const log = await createRecord(tableId('activityLogs'), {
-      [FIELD_IDS.activityLogs.log_id]: `WEB-${Date.now()}`,
-      [FIELD_IDS.activityLogs.task_id]: recordId,
-      [FIELD_IDS.activityLogs.action]: `Staff via Netlify: ${action}`,
-      [FIELD_IDS.activityLogs.created_at]: new Date().toISOString(),
-    })
-    return json({ data: { task: updated, log } })
+    context.waitUntil(
+      createRecord(tableId('activityLogs'), {
+        [FIELD_IDS.activityLogs.log_id]: `WEB-${Date.now()}`,
+        [FIELD_IDS.activityLogs.task_id]: recordId,
+        [FIELD_IDS.activityLogs.action]: `Staff via Netlify: ${action}`,
+        [FIELD_IDS.activityLogs.created_at]: new Date().toISOString(),
+      }).catch((reason) => {
+        console.error('Could not write task Activity Log', reason)
+      }),
+    )
+    return json({ data: { task: updated, log_queued: true } })
   } catch (reason) {
     return safeError(reason)
   }
 }
+
 
 
