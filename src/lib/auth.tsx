@@ -6,14 +6,13 @@ import {
   login as identityLogin,
   logout as identityLogout,
   onAuthChange,
-  signup as identitySignup,
 } from '@netlify/identity'
 
 type AuthContextValue = {
   user: User | null
   loading: boolean
   login(email: string, password: string): Promise<User>
-  signup(email: string, password: string, name: string): Promise<User>
+  signup(email: string, password: string, name: string, inviteCode: string): Promise<User>
   logout(): Promise<void>
 }
 
@@ -55,9 +54,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(nextUser)
       return nextUser
     },
-    async signup(email, password, name) {
-      const nextUser = await identitySignup(email, password, { full_name: name })
-      setUser(await getUser())
+    async signup(email, password, name, inviteCode) {
+      const response = await fetch('/.netlify/functions/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
+      })
+      const body = await response.json().catch(() => null) as { error?: string } | null
+      if (!response.ok) throw new Error(body?.error || 'Registration could not be completed.')
+      const nextUser = await identityLogin(email, password)
+      setUser(nextUser)
       return nextUser
     },
     async logout() {

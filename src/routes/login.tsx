@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { getSettings } from '@netlify/identity'
-import { ArrowLeft, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, KeyRound, LoaderCircle, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { z } from 'zod'
 import { Logo } from '@/components/brand/Logo'
 import { LanguageToggle } from '@/components/brand/SiteNav'
@@ -26,21 +25,15 @@ function LoginPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [signupEnabled, setSignupEnabled] = useState(true)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!loading && user) window.location.assign(safeRedirect(redirect))
   }, [loading, redirect, user])
-
-  useEffect(() => {
-    void getSettings()
-      .then((settings) => setSignupEnabled(!settings.disableSignup))
-      .catch(() => setSignupEnabled(true))
-  }, [])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -52,14 +45,8 @@ function LoginPage() {
         await login(email.trim(), password)
         window.location.assign(safeRedirect(redirect))
       } else {
-        const created = await signup(email.trim(), password, name.trim())
-        if (created.confirmedAt) {
-          window.location.assign(safeRedirect(redirect))
-        } else {
-          setMessage(pick('Account created. Check your email to confirm it, then sign in.', '账号已创建。请先查收确认邮件，然后返回登录。'))
-          setMode('login')
-          setPassword('')
-        }
+        await signup(email.trim(), password, name.trim(), inviteCode.trim())
+        window.location.assign(safeRedirect(redirect))
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : pick('Unable to continue. Please try again.', '暂时无法继续，请重试。'))
@@ -97,17 +84,24 @@ function LoginPage() {
           <button type="button" onClick={() => setMode('login')} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'login' ? 'bg-walnut text-paper shadow-soft' : 'text-stone'}`}>
             {pick('Sign in', '登录')}
           </button>
-          <button type="button" disabled={!signupEnabled} onClick={() => setMode('signup')} className={`rounded-full px-4 py-2 text-sm font-semibold transition disabled:opacity-40 ${mode === 'signup' ? 'bg-walnut text-paper shadow-soft' : 'text-stone'}`}>
+          <button type="button" onClick={() => setMode('signup')} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'signup' ? 'bg-walnut text-paper shadow-soft' : 'text-stone'}`}>
             {pick('Register', '注册')}
           </button>
         </div>
 
         <form className="mt-7 space-y-5" onSubmit={submit}>
           {mode === 'signup' && (
-            <div className="space-y-2">
-              <Label htmlFor="name">{pick('Name', '姓名')}</Label>
-              <div className="relative"><UserRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone" /><Input id="name" value={name} onChange={(event) => setName(event.target.value)} required className="h-11 rounded-xl pl-10" autoComplete="name" /></div>
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="name">{pick('Name', '姓名')}</Label>
+                <div className="relative"><UserRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone" /><Input id="name" value={name} onChange={(event) => setName(event.target.value)} required className="h-11 rounded-xl pl-10" autoComplete="name" /></div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invite-code">{pick('Registration code', '邀请码')}</Label>
+                <div className="relative"><KeyRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone" /><Input id="invite-code" type="password" value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} required className="h-11 rounded-xl pl-10" autoComplete="off" /></div>
+                <p className="text-xs text-stone">{pick('Ask the StayOps administrator for this code.', '请向 StayOps 管理员获取邀请码。')}</p>
+              </div>
+            </>
           )}
           <div className="space-y-2">
             <Label htmlFor="email">{pick('Email', '邮箱')}</Label>
