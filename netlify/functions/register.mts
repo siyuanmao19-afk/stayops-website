@@ -54,7 +54,7 @@ export default async (request: Request) => {
 export const config = {
   rateLimit: {
     action: 'rate_limit' as const,
-    aggregateBy: ['ip'] as const,
+    aggregateBy: 'ip' as const,
     windowSize: 60,
     windowLimit: 10,
   },
