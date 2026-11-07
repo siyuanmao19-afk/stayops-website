@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getDashboard } from './api'
-import type { DashboardData, Property } from './domain'
+import type { DashboardData, Property, Task } from './domain'
 import { translateValue, useLanguage } from './language'
 import {
   cachedTranslations,
@@ -21,6 +21,7 @@ type DataState = {
   translating: boolean
   translationError: string | null
   refresh: () => Promise<void>
+  updateTaskLocal: (recordId: string, patch: Partial<Pick<Task, 'draft_response' | 'status'>>) => void
   propertyById: (id: string) => Property | undefined
   /** Translate one piece of Softr text for display (falls back to the original). */
   tx: (text: string) => string
@@ -50,6 +51,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const updateTaskLocal = useCallback((recordId: string, patch: Partial<Pick<Task, 'draft_response' | 'status'>>) => {
+    setRaw((current) => current
+      ? {
+          ...current,
+          tasks: current.tasks.map((task) => task.record_id === recordId ? { ...task, ...patch } : task),
+        }
+      : current)
   }, [])
 
   useEffect(() => {
@@ -88,11 +98,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       translating,
       translationError,
       refresh,
+      updateTaskLocal,
       propertyById: (id) => data?.properties.find((property) => property.property_id === id),
       tx,
       ensureTranslated,
     }
-  }, [raw, language, translations, loading, error, translating, translationError, refresh, ensureTranslated])
+  }, [raw, language, translations, loading, error, translating, translationError, refresh, updateTaskLocal, ensureTranslated])
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }
@@ -102,3 +113,4 @@ export function useStayOpsData() {
   if (!value) throw new Error('useStayOpsData must be used inside DataProvider')
   return value
 }
+
