@@ -113,16 +113,23 @@ export interface DashboardData {
   loadedAt: string
 }
 
-export interface AssistantResult {
+/** AI text shown to the reader; the English version is what Softr stores. */
+export interface AssistantText {
+  title: string
+  task_type_reason: string
+  summary: string
+  staff_action: string
+  guest_reply: string
+}
+
+export interface AssistantResult extends AssistantText {
   task_id: string
   task_record_id: string
   task_type: TaskType
-  task_type_reason: string
-  summary: string
   procedure: Procedure | null
-  staff_action: string
-  guest_reply: string
   handling_record: string
+  /** Simplified Chinese version for display, when the request was made in Chinese mode. */
+  zh: AssistantText | null
 }
 
 export const EXAMPLE_QUESTIONS = [

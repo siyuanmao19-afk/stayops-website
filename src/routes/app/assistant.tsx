@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
   BookOpenCheck,
@@ -25,7 +25,8 @@ import { DataState } from '@/components/app/DataState'
 import { RichText, stripBold } from '@/components/brand/RichText'
 import { askAssistant, updateTask } from '@/lib/api'
 import { useStayOpsData } from '@/lib/data-context'
-import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult } from '@/lib/domain'
+import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult, type AssistantText } from '@/lib/domain'
+import { translateProcedure } from '@/lib/translation'
 import { useLanguage } from '@/lib/language'
 
 export const Route = createFileRoute('/app/assistant')({
@@ -37,15 +38,41 @@ type Phase = 'idle' | 'processing' | 'success' | 'error'
 
 function AssistantPage() {
   const { language, pick } = useLanguage()
-  const { data, loading, error, refresh } = useStayOpsData()
+  const { data, loading, error, refresh, tx, ensureTranslated } = useStayOpsData()
   const [propertyId, setPropertyId] = useState('')
   const [question, setQuestion] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<AssistantResult | null>(null)
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  /** Staff-edited reply that was saved (null = the AI draft is unchanged). */
+  const [savedDraft, setSavedDraft] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [reviewed, setReviewed] = useState(false)
+
+  // Chinese mode: make sure the matched procedure (and an English-only result) has Chinese text.
+  useEffect(() => {
+    if (language !== 'zh' || !result) return
+    const p = result.procedure
+    void ensureTranslated([
+      ...(result.zh ? [] : [result.task_type_reason, result.summary, result.staff_action, result.guest_reply]),
+      ...(p ? [p.title, p.approval_rule, ...p.instructions] : []),
+    ])
+  }, [language, result, ensureTranslated])
+
+  const view: AssistantText | null = result
+    ? language === 'zh'
+      ? result.zh ?? {
+          title: tx(result.title),
+          task_type_reason: tx(result.task_type_reason),
+          summary: tx(result.summary),
+          staff_action: tx(result.staff_action),
+          guest_reply: tx(result.guest_reply),
+        }
+      : result
+    : null
+  const procedure = result?.procedure ? (language === 'zh' ? translateProcedure(result.procedure, tx) : result.procedure) : null
+  const shownReply = savedDraft ?? view?.guest_reply ?? ''
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,7 +88,7 @@ function AssistantPage() {
     try {
       const r = await askAssistant(propertyId, q, language)
       setResult(r)
-      setDraft(r.guest_reply)
+      setSavedDraft(null)
       setPhase('success')
     } catch {
       setPhase('error')
@@ -198,7 +225,7 @@ function AssistantPage() {
           </div>
         )}
 
-        {phase === 'success' && result && (
+        {phase === 'success' && result && view && (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-stone">
@@ -212,28 +239,28 @@ function AssistantPage() {
             </div>
 
             <ResultCard n={1} icon={<Tag />} title={pick('Task Type', '任务类型')} extra={<TypeBadge type={result.task_type} />}>
-              <RichText text={result.task_type_reason} />
+              <RichText text={view.task_type_reason} />
             </ResultCard>
 
             <ResultCard n={2} icon={<FileText />} title={pick('Core Request Summary', '核心需求摘要')}>
-              <RichText text={result.summary} />
+              <RichText text={view.summary} />
             </ResultCard>
 
             <ResultCard n={3} icon={<BookOpenCheck />} title={pick('Matched Procedure', '匹配的操作规范')}>
-              {result.procedure ? (
+              {procedure ? (
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-lg bg-walnut px-2 py-0.5 font-mono text-xs text-sand">
-                      {result.procedure.procedure_id}
+                      {procedure.procedure_id}
                     </span>
-                    <span className="font-semibold text-walnut">{result.procedure.title}</span>
+                    <span className="font-semibold text-walnut">{procedure.title}</span>
                   </div>
                   <ol className="list-decimal space-y-1 pl-5">
-                    {result.procedure.instructions.map((s) => (
+                    {procedure.instructions.map((s) => (
                       <li key={s}>{s}</li>
                     ))}
                   </ol>
-                  <ApprovalTag level={result.procedure.approval_level} rule={result.procedure.approval_rule} />
+                  <ApprovalTag level={procedure.approval_level} rule={procedure.approval_rule} />
                 </div>
               ) : (
                 <p>
@@ -247,7 +274,7 @@ function AssistantPage() {
             </ResultCard>
 
             <ResultCard n={4} icon={<UserCog />} title={pick('Recommended Staff Action', '建议员工操作')}>
-              <RichText text={result.staff_action} />
+              <RichText text={view.staff_action} />
             </ResultCard>
 
             <ResultCard
@@ -263,7 +290,7 @@ function AssistantPage() {
                     className="rounded-full"
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(stripBold(draft))
+                        await navigator.clipboard.writeText(stripBold(editing ? draft : shownReply))
                         toast.success(pick('Reply draft copied', '回复草稿已复制'))
                       } catch {
                         toast.error(pick('Couldn’t copy — select the text instead', '复制失败，请手动选择文本'))
@@ -279,7 +306,11 @@ function AssistantPage() {
                       onClick={async () => {
                         if (!draft.trim()) return toast.error(pick('The reply can’t be empty', '回复内容不能为空'))
                         try {
-                          await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: pick('Edited the AI guest reply draft', '修改了 AI 客人回复草稿') })
+                          const edited = draft.trim()
+                          // Unchanged text is sent as the stored English; edited Chinese is translated server-side.
+                          const english = edited === (view.guest_reply || '').trim() && savedDraft === null ? result.guest_reply : edited
+                          await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: english, status: 'Draft Ready', action: 'Edited the AI guest reply draft' })
+                          setSavedDraft(edited)
                           setEditing(false)
                           setReviewed(false)
                           await refresh()
@@ -292,7 +323,7 @@ function AssistantPage() {
                       <Save aria-hidden="true" /> {pick('Save changes', '保存修改')}
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline" className="rounded-full" onClick={() => setEditing(true)}>
+                    <Button size="sm" variant="outline" className="rounded-full" onClick={() => { setDraft(shownReply); setEditing(true) }}>
                       <PenLine aria-hidden="true" /> {pick('Edit draft', '编辑草稿')}
                     </Button>
                   )}
@@ -314,13 +345,16 @@ function AssistantPage() {
                 </>
               ) : (
                 <p className="whitespace-pre-line">
-                  <RichText text={draft} />
+                  <RichText text={shownReply} />
                 </p>
               )}
             </ResultCard>
 
             <ResultCard n={6} icon={<ScrollText />} title={pick('Handling Record', '处理记录')}>
-              <RichText text={result.handling_record} />
+              <RichText text={pick(
+                result.handling_record,
+                '本次分析已保存到 **活动日志** 并关联到对应任务。员工修改和最终状态会作为独立记录保存，从而形成完整的 **审计轨迹**。',
+              )} />
             </ResultCard>
 
             <div className="flex justify-end">
@@ -329,7 +363,7 @@ function AssistantPage() {
                 disabled={reviewed || editing}
                 onClick={async () => {
                   try {
-                    await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: pick('Reviewed and approved the AI reply draft', '审核并批准了 AI 回复草稿') })
+                    await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: savedDraft ?? result.guest_reply, status: 'Draft Ready', action: 'Reviewed and approved the AI reply draft' })
                     setReviewed(true)
                     await refresh()
                     toast.success(pick('Marked as reviewed and logged', '已标记为已审核并记录'))

@@ -32,7 +32,7 @@ export const Route = createFileRoute('/app/tasks')({
 const ALL = 'all'
 
 function TasksPage() {
-  const { data, loading, error, refresh, propertyById } = useStayOpsData()
+  const { data, raw, loading, error, refresh, propertyById } = useStayOpsData()
   const { pick, tv } = useLanguage()
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [query, setQuery] = useState('')
@@ -182,7 +182,10 @@ function TasksPage() {
         onClose={() => setEditing(null)}
         onSave={async (task, draft, next) => {
           try {
-            await updateTask({ record_id: task.record_id, task_id: task.id, draft_response: draft, status: next })
+            // Softr stays English: send the stored English text when the (translated) draft is unchanged.
+            const original = raw?.tasks.find((item) => item.record_id === task.record_id)
+            const draftToSave = original && draft === task.draft_response.trim() ? original.draft_response : draft
+            await updateTask({ record_id: task.record_id, task_id: task.id, draft_response: draftToSave, status: next })
             setEditing(null)
             await refresh()
             toast.success(pick('Draft, status and Activity Log updated', '草稿、状态和活动日志已更新'))

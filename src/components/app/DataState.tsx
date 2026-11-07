@@ -1,6 +1,8 @@
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useLanguage } from '@/lib/language'
+import { useStayOpsData } from '@/lib/data-context'
+import { dashboardTexts } from '@/lib/translation'
 
 export function DataState({ loading, error, retry }: { loading?: boolean; error?: string; retry?: () => Promise<void> }) {
   const { pick } = useLanguage()
@@ -16,3 +18,24 @@ export function DataState({ loading, error, retry }: { loading?: boolean; error?
 }
 
 
+
+/** Shown in Chinese mode while live Softr text is being translated (Softr itself stays English). */
+export function TranslationNotice() {
+  const { language } = useLanguage()
+  const { translating, translationError, raw, ensureTranslated } = useStayOpsData()
+  if (language !== 'zh' || (!translating && !translationError)) return null
+  return (
+    <div role="status" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-champagne/40 bg-sand/30 px-4 py-2.5 text-sm text-coffee">
+      <span className="inline-flex items-center gap-2">
+        {translating
+          ? <><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />正在将数据库内容翻译成中文……</>
+          : <><AlertCircle className="size-4 text-terracotta" aria-hidden="true" />部分内容暂时无法翻译，正在显示英文原文。</>}
+      </span>
+      {!translating && raw && (
+        <Button size="sm" variant="outline" className="rounded-full" onClick={() => void ensureTranslated(dashboardTexts(raw))}>
+          <RefreshCw aria-hidden="true" /> 重试翻译
+        </Button>
+      )}
+    </div>
+  )
+}

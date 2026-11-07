@@ -78,6 +78,33 @@ const VALUE_ZH: Record<string, string> = {
   System: '系统',
   // Misc data fallbacks
   'Not recorded': '未记录',
+  Unassigned: '未分配',
+  'StayOps staff': 'StayOps 员工',
+  'StayOps AI': 'StayOps AI',
+  'Untitled task': '未命名任务',
+  'Location pending': '位置待定',
+  // Demo location network (homepage graph)
+  'Demo location network': '演示房源网络',
+  Zhejiang: '浙江',
+  Jiangsu: '江苏',
+  Yunnan: '云南',
+  Fujian: '福建',
+  Hangzhou: '杭州',
+  Wuzhen: '乌镇',
+  Suzhou: '苏州',
+  Nanjing: '南京',
+  Dali: '大理',
+  Lijiang: '丽江',
+  Xiamen: '厦门',
+  Quanzhou: '泉州',
+  'West Lake Tea House': '西湖茶舍',
+  'Canal Lantern Inn': '运河灯笼客栈',
+  'Garden Courtyard Suzhou': '苏州园林小院',
+  'Plane Tree Residence': '梧桐公馆',
+  'Erhai Stone Lodge': '洱海石屋',
+  'Old Town Timber House': '古城木屋',
+  'Gulangyu Sea Breeze': '鼓浪屿海风民宿',
+  'Red Brick Quanzhou': '泉州红砖厝',
 }
 
 /** Translate a known enum-like value (task type, status, actor…); unknown values pass through unchanged. */

@@ -99,7 +99,7 @@ function useIsNarrow() {
 
 export function LocationGraph() {
   const nodesRef = useRef<GNode[]>(buildNodes())
-  const { pick } = useLanguage()
+  const { pick, tv } = useLanguage()
   const [, setTick] = useState(0)
   const [hover, setHover] = useState<string | null>(null)
   const [province, setProvince] = useState<string | null>(null)
@@ -376,7 +376,7 @@ export function LocationGraph() {
                         : 'fill-paper/80 text-[12px]',
                     )}
                   >
-                    {n.label}
+                    {tv(n.label)}
                   </text>
                 </g>
               )
@@ -397,7 +397,7 @@ export function LocationGraph() {
                 <div>
                   <p className="eyebrow text-champagne">{city ? pick('City', '城市') : pick('Province', '省份')}</p>
                   <h3 className="mt-1 text-2xl font-semibold text-walnut">
-                    {city ?? byId(province!).label}
+                    {tv(city ?? byId(province!).label)}
                   </h3>
                   {city && (
                     <p className="text-sm text-stone">
@@ -421,11 +421,11 @@ export function LocationGraph() {
                 {listProperties.map((p) => (
                   <li key={p.property_id} className="rounded-2xl border border-border/80 bg-ivory/60 p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-walnut">{p.name}</p>
+                      <p className="font-medium text-walnut">{tv(p.name)}</p>
                       <StatusDot status={p.status} />
                     </div>
                     <p className="text-xs text-stone">
-                      {p.city} · {pick(`${openTasksForCity(p.city)} pending in city`, `该城市 ${openTasksForCity(p.city)} 个待处理`)}
+                      {tv(p.city)} · {pick(`${openTasksForCity(p.city)} pending in city`, `该城市 ${openTasksForCity(p.city)} 个待处理`)}
                     </p>
                   </li>
                 ))}
@@ -458,7 +458,7 @@ export function LocationGraph() {
                   }}
                   className="text-left font-semibold text-walnut hover:text-champagne"
                 >
-                  {p.name}
+                  {tv(p.name)}
                 </button>
                 <ul className="mt-1 flex flex-wrap gap-1.5">
                   {p.cities.map((c) => (
@@ -477,7 +477,7 @@ export function LocationGraph() {
                             : 'border-border text-stone hover:border-champagne hover:text-walnut',
                         )}
                       >
-                        {c}
+                        {tv(c)}
                       </button>
                     </li>
                   ))}

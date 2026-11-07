@@ -33,6 +33,11 @@ public/img/                  ← hero photos (see README for the required filena
 - Swap-in point: replace imports from `@/lib/fixtures` with an API client; keep the type names.
   Remove the `DemoBadge` from a screen once it reads real data. Keep the `Demo location network`
   label until Properties has province and city fields.
+- **Bilingual data, English storage.** Softr is always written in English (tasks, drafts, logs,
+  AI fields). In 中文 mode `DataProvider` swaps Softr text for Chinese from `netlify/functions/translate`
+  (DeepSeek); use `data`/`tx()` for display and `raw` for anything written back. Staff text typed in
+  Chinese is translated to English server-side (`toEnglish`) before it reaches Softr. The Netlify
+  Blobs store `translation-cache` is only a derived translation cache, never business data.
 - AI text is rendered with `RichText`, which supports `**bold**` only and never injects HTML.
 - AI output is always a draft; keep the warning banner on the Assistant. No delete features.
 - Do not show invented metrics, ratings, testimonials or partner logos.
