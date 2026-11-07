@@ -8,6 +8,7 @@ import {
   type Property,
 } from '@/lib/fixtures'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/language'
 
 const W = 900
 const H = 560
@@ -98,6 +99,7 @@ function useIsNarrow() {
 
 export function LocationGraph() {
   const nodesRef = useRef<GNode[]>(buildNodes())
+  const { pick } = useLanguage()
   const [, setTick] = useState(0)
   const [hover, setHover] = useState<string | null>(null)
   const [province, setProvince] = useState<string | null>(null)
@@ -236,13 +238,13 @@ export function LocationGraph() {
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="relative overflow-hidden rounded-3xl border border-champagne/15 bg-night shadow-lift">
         <div className="absolute left-4 top-4 z-10">
-          <DemoBadge label={DEMO_LOCATION_NETWORK.label} className="border-champagne/30 bg-night/70 text-sand" />
+          <DemoBadge label={pick(DEMO_LOCATION_NETWORK.label, '演示房源网络')} className="border-champagne/30 bg-night/70 text-sand" />
         </div>
         <div className="absolute right-4 top-4 z-10 flex gap-1.5">
-          <GraphButton label="Zoom in" onClick={() => zoom(1.2)}>
+          <GraphButton label={pick('Zoom in', '放大')} onClick={() => zoom(1.2)}>
             <Plus className="size-4" />
           </GraphButton>
-          <GraphButton label="Zoom out" onClick={() => zoom(1 / 1.2)}>
+          <GraphButton label={pick('Zoom out', '缩小')} onClick={() => zoom(1 / 1.2)}>
             <Minus className="size-4" />
           </GraphButton>
           <button
@@ -250,7 +252,7 @@ export function LocationGraph() {
             onClick={reset}
             className="inline-flex h-9 items-center gap-1.5 rounded-full border border-champagne/25 bg-night/70 px-3 text-xs font-medium text-sand transition-colors hover:bg-coffee/60"
           >
-            <RotateCcw className="size-3.5" aria-hidden="true" /> Reset view
+            <RotateCcw className="size-3.5" aria-hidden="true" /> {pick('Reset view', '重置视图')}
           </button>
         </div>
 
@@ -259,7 +261,7 @@ export function LocationGraph() {
           viewBox={`0 0 ${W} ${H}`}
           className="block h-[420px] w-full touch-none select-none sm:h-[520px]"
           role="img"
-          aria-label="Relationship graph of provinces and cities in the demo homestay network. A text list follows."
+          aria-label={pick('Relationship graph of provinces and cities in the demo homestay network. A text list follows.', '演示民宿网络中省份与城市的关系图，下方附有文字列表。')}
           onWheel={(e) => {
             if (!e.ctrlKey && !e.metaKey) return
             e.preventDefault()
@@ -382,7 +384,7 @@ export function LocationGraph() {
           </g>
         </svg>
         <p className="pointer-events-none absolute bottom-3 left-4 text-[11px] text-sand/50">
-          {narrow ? 'Tap a province to reveal its cities' : 'Drag to move · Ctrl + scroll to zoom'}
+          {narrow ? pick('Tap a province to reveal its cities', '点击省份查看其城市') : pick('Drag to move · Ctrl + scroll to zoom', '拖动移动 · Ctrl + 滚轮缩放')}
         </p>
       </div>
 
@@ -393,19 +395,19 @@ export function LocationGraph() {
             <>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="eyebrow text-champagne">{city ? 'City' : 'Province'}</p>
+                  <p className="eyebrow text-champagne">{city ? pick('City', '城市') : pick('Province', '省份')}</p>
                   <h3 className="mt-1 text-2xl font-semibold text-walnut">
                     {city ?? byId(province!).label}
                   </h3>
                   {city && (
                     <p className="text-sm text-stone">
-                      {openTasksForCity(city)} open {openTasksForCity(city) === 1 ? 'task' : 'tasks'} (demo)
+                      {pick(`${openTasksForCity(city)} open ${openTasksForCity(city) === 1 ? 'task' : 'tasks'} (demo)`, `${openTasksForCity(city)} 个待处理任务（演示）`)}
                     </p>
                   )}
                 </div>
                 <button
                   type="button"
-                  aria-label="Clear selection"
+                  aria-label={pick('Clear selection', '清除选择')}
                   onClick={() => {
                     setCity(null)
                     setProvince(null)
@@ -423,7 +425,7 @@ export function LocationGraph() {
                       <StatusDot status={p.status} />
                     </div>
                     <p className="text-xs text-stone">
-                      {p.city} · {openTasksForCity(p.city)} pending in city
+                      {p.city} · {pick(`${openTasksForCity(p.city)} pending in city`, `该城市 ${openTasksForCity(p.city)} 个待处理`)}
                     </p>
                   </li>
                 ))}
@@ -431,17 +433,19 @@ export function LocationGraph() {
             </>
           ) : (
             <>
-              <p className="eyebrow text-champagne">Explore</p>
+              <p className="eyebrow text-champagne">{pick('Explore', '探索')}</p>
               <p className="mt-2 text-sm text-stone">
-                Select a province to filter its cities and homestays, or a city to see each
-                property’s status and pending tasks.
+                {pick(
+                  'Select a province to filter its cities and homestays, or a city to see each property’s status and pending tasks.',
+                  '选择省份可筛选其城市与民宿，选择城市可查看各房源的状态和待处理任务。',
+                )}
               </p>
             </>
           )}
         </div>
 
-        <nav aria-label="Location list" className="rounded-3xl border border-border bg-paper p-5 shadow-soft">
-          <p className="eyebrow mb-3 text-champagne">Text view</p>
+        <nav aria-label={pick('Location list', '地区列表')} className="rounded-3xl border border-border bg-paper p-5 shadow-soft">
+          <p className="eyebrow mb-3 text-champagne">{pick('Text view', '文字视图')}</p>
           <ul className="space-y-3">
             {DEMO_LOCATION_NETWORK.provinces.map((p) => (
               <li key={p.id}>
@@ -501,11 +505,12 @@ function GraphButton({ label, onClick, children }: { label: string; onClick: () 
 }
 
 export function StatusDot({ status }: { status: Property['status'] }) {
+  const { tv } = useLanguage()
   const color = status === 'Operating' ? 'bg-sage' : status === 'Limited' ? 'bg-champagne' : 'bg-terracotta'
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-stone">
       <span className={cn('size-2 rounded-full', color)} aria-hidden="true" />
-      {status}
+      {tv(status)}
     </span>
   )
 }

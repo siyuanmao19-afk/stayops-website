@@ -225,29 +225,29 @@ function Home() {
             <div className="relative">
               <div className="rounded-3xl border border-border bg-paper p-6 shadow-lift sm:p-8">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-stone">West Lake Tea House · Room 3</p>
-                  <DemoBadge label="Example output" />
+                  <p className="text-sm font-medium text-stone">{pick('West Lake Tea House · Room 3', '西湖茶舍 · 3 号房')}</p>
+                  <DemoBadge label={pick('Example output', '示例输出')} />
                 </div>
                 <p className="mt-4 rounded-2xl bg-ivory p-4 text-[0.95rem] text-charcoal">
-                  “Could we stay until 15:00 tomorrow? Our train leaves at 17:30.”
+                  {pick('“Could we stay until 15:00 tomorrow? Our train leaves at 17:30.”', '“我们明天可以待到 15:00 吗？我们的火车 17:30 出发。”')}
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <PreviewCard label="Task Type" text="**Booking** — changes the stay timing." />
-                  <PreviewCard label="Matched Procedure" text="**PROC-HZ-LATE-01** · Late check-out request" />
+                  <PreviewCard label={pick('Task Type', '任务类型')} text={pick('**Booking** — changes the stay timing.', '**预订** —— 涉及入住时间调整。')} />
+                  <PreviewCard label={pick('Matched Procedure', '匹配的操作规范')} text={pick('**PROC-HZ-LATE-01** · Late check-out request', '**PROC-HZ-LATE-01** · 延迟退房申请')} />
                   <PreviewCard
-                    label="Recommended Staff Action"
-                    text="Check the next arrival; offer 13:00 free and seek **manager approval** for 15:00."
+                    label={pick('Recommended Staff Action', '建议员工操作')}
+                    text={pick('Check the next arrival; offer 13:00 free and seek **manager approval** for 15:00.', '先确认下一位入住客人的时间；可免费延至 13:00，延至 15:00 需**负责人审批**。')}
                     wide
                   />
                   <PreviewCard
-                    label="Guest Reply Draft"
-                    text="Thank you for sharing your train time. We’re checking tomorrow’s schedule and will confirm shortly."
+                    label={pick('Guest Reply Draft', '客人回复草稿')}
+                    text={pick('Thank you for sharing your train time. We’re checking tomorrow’s schedule and will confirm shortly.', '感谢您告知火车时间。我们正在确认明天的房间安排，稍后会尽快回复您。')}
                     wide
                   />
                 </div>
                 <p className="mt-5 flex items-center gap-2 text-xs text-terracotta">
                   <ShieldCheck className="size-4" aria-hidden="true" />
-                  AI output is a draft. Staff must review it before taking action or replying.
+                  {pick('AI output is a draft. Staff must review it before taking action or replying.', 'AI 输出仅为草稿，员工必须审核后才能采取行动或回复客人。')}
                 </p>
               </div>
             </div>

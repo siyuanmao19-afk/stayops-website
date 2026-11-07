@@ -25,7 +25,7 @@ import { DataState } from '@/components/app/DataState'
 import { RichText, stripBold } from '@/components/brand/RichText'
 import { askAssistant, updateTask } from '@/lib/api'
 import { useStayOpsData } from '@/lib/data-context'
-import { EXAMPLE_QUESTIONS, type AssistantResult } from '@/lib/domain'
+import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult } from '@/lib/domain'
 import { useLanguage } from '@/lib/language'
 
 export const Route = createFileRoute('/app/assistant')({
@@ -50,9 +50,9 @@ function AssistantPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const q = question.trim()
-    if (!propertyId) return setFieldError('Choose the property this enquiry belongs to.')
-    if (q.length < 8) return setFieldError('Describe the guest request in a little more detail.')
-    if (q.length > MAX_QUESTION) return setFieldError(`Keep the request under ${MAX_QUESTION} characters.`)
+    if (!propertyId) return setFieldError(pick('Choose the property this enquiry belongs to.', '请选择该咨询所属的房源。'))
+    if (q.length < 8) return setFieldError(pick('Describe the guest request in a little more detail.', '请更详细地描述客人的需求。'))
+    if (q.length > MAX_QUESTION) return setFieldError(pick(`Keep the request under ${MAX_QUESTION} characters.`, `请求内容请控制在 ${MAX_QUESTION} 字以内。`))
     setFieldError(null)
     setPhase('processing')
     setResult(null)
@@ -69,7 +69,7 @@ function AssistantPage() {
   }
 
   if (loading && !data) return <DataState loading />
-  if (error || !data) return <DataState error={error || 'No data returned.'} retry={refresh} />
+  if (error || !data) return <DataState error={error || pick('No data returned.', '未返回数据。')} retry={refresh} />
 
   return (
     <>
@@ -121,7 +121,7 @@ function AssistantPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2" aria-label={pick('Example questions', '示例问题')}>
-          {EXAMPLE_QUESTIONS.map((q) => (
+          {(language === 'zh' ? EXAMPLE_QUESTIONS_ZH : EXAMPLE_QUESTIONS).map((q) => (
             <button
               key={q}
               type="button"
@@ -202,24 +202,24 @@ function AssistantPage() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-stone">
-                Task <span className="font-mono text-walnut">{result.task_id}</span> created
+                {pick('Task', '任务')} <span className="font-mono text-walnut">{result.task_id}</span> {pick('created', '已创建')}
               </p>
               {reviewed && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sage/15 px-3 py-1 text-xs font-medium text-sage">
-                  <CheckCircle2 className="size-3.5" aria-hidden="true" /> Reviewed
+                  <CheckCircle2 className="size-3.5" aria-hidden="true" /> {pick('Reviewed', '已审核')}
                 </span>
               )}
             </div>
 
-            <ResultCard n={1} icon={<Tag />} title="Task Type" extra={<TypeBadge type={result.task_type} />}>
+            <ResultCard n={1} icon={<Tag />} title={pick('Task Type', '任务类型')} extra={<TypeBadge type={result.task_type} />}>
               <RichText text={result.task_type_reason} />
             </ResultCard>
 
-            <ResultCard n={2} icon={<FileText />} title="Core Request Summary">
+            <ResultCard n={2} icon={<FileText />} title={pick('Core Request Summary', '核心需求摘要')}>
               <RichText text={result.summary} />
             </ResultCard>
 
-            <ResultCard n={3} icon={<BookOpenCheck />} title="Matched Procedure">
+            <ResultCard n={3} icon={<BookOpenCheck />} title={pick('Matched Procedure', '匹配的操作规范')}>
               {result.procedure ? (
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -237,21 +237,23 @@ function AssistantPage() {
                 </div>
               ) : (
                 <p>
-                  <strong className="font-semibold text-terracotta">No verified procedure match.</strong>{' '}
-                  This property has no procedure for this kind of request, so none is cited. Follow the
-                  escalation advice below.
+                  <strong className="font-semibold text-terracotta">{pick('No verified procedure match.', '未匹配到已验证的操作规范。')}</strong>{' '}
+                  {pick(
+                    'This property has no procedure for this kind of request, so none is cited. Follow the escalation advice below.',
+                    '该房源没有针对此类请求的操作规范，因此不引用任何规范。请按照下方的升级建议处理。',
+                  )}
                 </p>
               )}
             </ResultCard>
 
-            <ResultCard n={4} icon={<UserCog />} title="Recommended Staff Action">
+            <ResultCard n={4} icon={<UserCog />} title={pick('Recommended Staff Action', '建议员工操作')}>
               <RichText text={result.staff_action} />
             </ResultCard>
 
             <ResultCard
               n={5}
               icon={<MessageSquareQuote />}
-              title="Guest Reply Draft"
+              title={pick('Guest Reply Draft', '客人回复草稿')}
               highlight
               extra={
                 <div className="flex flex-wrap gap-2">
@@ -262,36 +264,36 @@ function AssistantPage() {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(stripBold(draft))
-                        toast.success('Reply draft copied')
+                        toast.success(pick('Reply draft copied', '回复草稿已复制'))
                       } catch {
-                        toast.error('Couldn’t copy — select the text instead')
+                        toast.error(pick('Couldn’t copy — select the text instead', '复制失败，请手动选择文本'))
                       }
                     }}
                   >
-                    <ClipboardCopy aria-hidden="true" /> Copy
+                    <ClipboardCopy aria-hidden="true" /> {pick('Copy', '复制')}
                   </Button>
                   {editing ? (
                     <Button
                       size="sm"
                       className="rounded-full"
                       onClick={async () => {
-                        if (!draft.trim()) return toast.error('The reply can’t be empty')
+                        if (!draft.trim()) return toast.error(pick('The reply can’t be empty', '回复内容不能为空'))
                         try {
-                          await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: 'Edited the AI guest reply draft' })
+                          await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: pick('Edited the AI guest reply draft', '修改了 AI 客人回复草稿') })
                           setEditing(false)
                           setReviewed(false)
                           await refresh()
-                          toast.success('Changes saved and logged')
+                          toast.success(pick('Changes saved and logged', '修改已保存并记录'))
                         } catch (reason) {
-                          toast.error(reason instanceof Error ? reason.message : 'Could not save the draft')
+                          toast.error(reason instanceof Error ? reason.message : pick('Could not save the draft', '无法保存草稿'))
                         }
                       }}
                     >
-                      <Save aria-hidden="true" /> Save changes
+                      <Save aria-hidden="true" /> {pick('Save changes', '保存修改')}
                     </Button>
                   ) : (
                     <Button size="sm" variant="outline" className="rounded-full" onClick={() => setEditing(true)}>
-                      <PenLine aria-hidden="true" /> Edit draft
+                      <PenLine aria-hidden="true" /> {pick('Edit draft', '编辑草稿')}
                     </Button>
                   )}
                 </div>
@@ -300,7 +302,7 @@ function AssistantPage() {
               {editing ? (
                 <>
                   <Label htmlFor="draft" className="sr-only">
-                    Edit guest reply draft
+                    {pick('Edit guest reply draft', '编辑客人回复草稿')}
                   </Label>
                   <Textarea
                     id="draft"
@@ -317,7 +319,7 @@ function AssistantPage() {
               )}
             </ResultCard>
 
-            <ResultCard n={6} icon={<ScrollText />} title="Handling Record">
+            <ResultCard n={6} icon={<ScrollText />} title={pick('Handling Record', '处理记录')}>
               <RichText text={result.handling_record} />
             </ResultCard>
 
@@ -327,17 +329,17 @@ function AssistantPage() {
                 disabled={reviewed || editing}
                 onClick={async () => {
                   try {
-                    await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: 'Reviewed and approved the AI reply draft' })
+                    await updateTask({ record_id: result.task_record_id, task_id: result.task_id, draft_response: draft.trim(), status: 'Draft Ready', action: pick('Reviewed and approved the AI reply draft', '审核并批准了 AI 回复草稿') })
                     setReviewed(true)
                     await refresh()
-                    toast.success('Marked as reviewed and logged')
+                    toast.success(pick('Marked as reviewed and logged', '已标记为已审核并记录'))
                   } catch (reason) {
-                    toast.error(reason instanceof Error ? reason.message : 'Could not mark this task as reviewed')
+                    toast.error(reason instanceof Error ? reason.message : pick('Could not mark this task as reviewed', '无法将该任务标记为已审核'))
                   }
                 }}
               >
                 <CheckCircle2 aria-hidden="true" />
-                {reviewed ? 'Reviewed' : 'Mark as reviewed'}
+                {reviewed ? pick('Reviewed', '已审核') : pick('Mark as reviewed', '标记为已审核')}
               </Button>
             </div>
           </div>
