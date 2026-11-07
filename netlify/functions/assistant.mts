@@ -1,6 +1,7 @@
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { createRecord, FIELD_IDS, listRecords, tableId, updateRecord } from './_lib/softr.mts'
 import { procedure, property } from './_lib/normalise.mts'
+import { hasHan } from './_lib/translate.mts'
 
 const TYPES = new Set(['Guest enquiry', 'Guest issue', 'Maintenance', 'Housekeeping', 'Review response'])
 
@@ -112,12 +113,12 @@ export default async (request: Request) => {
       },
       body: JSON.stringify({
         model: aiEnv('DEEPSEEK_MODEL'),
-        max_tokens: 900,
+        max_tokens: language === 'zh' ? 2200 : 900,
         temperature: 0.2,
         messages: [
           {
             role: 'system',
-            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must remain one of these exact English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. Write task_type_reason as a natural first-person account from the guest's point of view: 2-3 detailed sentences, about 50-100 Chinese characters or 35-60 English words, explaining what I experienced, how it affected me and what I need. Write summary as one very short sentence containing only the core request: no background and no advice, at most 30 Chinese characters or 16 English words. procedure_id must be the closest relevant supplied ID; choose one whenever allowed_procedures is not empty, and use N/A only when the list is empty. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. staff_action should be 4-6 sentences and guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields except summary. Write title, task_type_reason, summary, staff_action and guest_reply in ${language === 'zh' ? 'Simplified Chinese' : 'English'}.`,
+            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must remain one of these exact English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. Write task_type_reason as a natural first-person account from the guest's point of view: 2-3 detailed sentences, about 50-100 Chinese characters or 35-60 English words, explaining what I experienced, how it affected me and what I need. Write summary as one very short sentence containing only the core request: no background and no advice, at most 30 Chinese characters or 16 English words. procedure_id must be the closest relevant supplied ID; choose one whenever allowed_procedures is not empty, and use N/A only when the list is empty. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. staff_action should be 4-6 sentences and guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields except summary. Always write title, task_type_reason, summary, staff_action and guest_reply in English, because the database is kept in English. Also include guest_request_en: a faithful English translation of the guest request (copy it unchanged if it is already English).${language === 'zh' ? ' The staff member reads Simplified Chinese, so also include key zh: an object with the same five keys (title, task_type_reason, summary, staff_action, guest_reply) translated faithfully into natural Simplified Chinese, with the same **bold** phrases and the same length limits (summary at most 30 Chinese characters).' : ''}`,
           },
           {
             role: 'user',
@@ -148,13 +149,27 @@ export default async (request: Request) => {
       : /owner approval/i.test(rule)
         ? 'Pending Approval'
         : 'Draft Ready'
-    const summary = conciseSummary(result.summary, language, question)
+    const summary = conciseSummary(result.summary, 'en', hasHan(question) ? String(result.guest_request_en || question) : question)
     const staffAction = bounded(result.staff_action, 3000, 'No verified procedure match. Ask the duty owner to review the request.')
     const guestReply = bounded(result.guest_reply, 2000, 'Thank you for contacting us. Our team is reviewing your request and will update you shortly.')
     const title = bounded(result.title, 160, 'Guest service request')
+    const taskTypeReason = bounded(result.task_type_reason, 1000, `The request is classified as **${taskType}** based on the guest's message.`)
+    const englishRequest = hasHan(question) ? bounded(result.guest_request_en, 1200, '') : ''
+    const zh = (language === 'zh' && typeof result.zh === 'object' && result.zh ? result.zh : {}) as Record<string, unknown>
+    // Chinese is returned for display only; Softr receives the English fields above.
+    const chinese = language === 'zh' && zh.staff_action && zh.guest_reply
+      ? {
+          title: bounded(zh.title, 160, title),
+          task_type_reason: bounded(zh.task_type_reason, 1000, taskTypeReason),
+          summary: conciseSummary(zh.summary, 'zh', summary),
+          staff_action: bounded(zh.staff_action, 3000, staffAction),
+          guest_reply: bounded(zh.guest_reply, 2000, guestReply),
+        }
+      : null
 
     await updateRecord(tableId('tasks'), taskRecordId, {
       [FIELD_IDS.tasks.title]: title,
+      ...(englishRequest ? { [FIELD_IDS.tasks.description]: englishRequest } : {}),
       [FIELD_IDS.tasks.task_type]: taskType,
       [FIELD_IDS.tasks.procedure_id]: matched?.row.id || '',
       [FIELD_IDS.tasks.ai_summary]: summary,
@@ -173,14 +188,14 @@ export default async (request: Request) => {
       task_id: displayTaskId,
       task_record_id: taskRecordId,
       task_type: taskType,
-      task_type_reason: bounded(result.task_type_reason, 1000, `The request is classified as **${taskType}** based on the guest's message.`),
+      title,
+      task_type_reason: taskTypeReason,
       summary,
       procedure: matched?.item || null,
       staff_action: staffAction,
       guest_reply: guestReply,
-      handling_record: language === 'zh'
-        ? '本次分析已保存到 **活动日志** 并关联到对应任务。员工修改和最终状态会作为独立记录保存，从而形成完整的 **审计轨迹**。'
-        : 'This analysis was saved to **Activity Logs** and linked to the task. Staff edits and the final status are recorded as separate entries, preserving a complete **audit trail**.',
+      zh: chinese,
+      handling_record: 'This analysis was saved to **Activity Logs** and linked to the task. Staff edits and the final status are recorded as separate entries, preserving a complete **audit trail**.',
     } })
   } catch (reason) {
     if (taskRecordId) {

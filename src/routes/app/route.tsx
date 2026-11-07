@@ -13,6 +13,7 @@ import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DataProvider } from '@/lib/data-context'
+import { TranslationNotice } from '@/components/app/DataState'
 import { useLanguage } from '@/lib/language'
 import { LanguageToggle } from '@/components/brand/SiteNav'
 
@@ -88,7 +89,7 @@ function AppLayout() {
 
       <main className="min-w-0 px-4 py-8 sm:px-8 lg:py-10">
         <div className="mx-auto max-w-6xl">
-          <DataProvider><Outlet /></DataProvider>
+          <DataProvider><TranslationNotice /><Outlet /></DataProvider>
         </div>
       </main>
     </div>
