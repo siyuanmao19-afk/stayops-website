@@ -181,17 +181,21 @@ function TasksPage() {
         task={editing}
         onClose={() => setEditing(null)}
         onSave={async (task, draft, next) => {
+          const original = raw?.tasks.find((item) => item.record_id === task.record_id)
+          const draftToSave = original && draft === task.draft_response.trim() ? original.draft_response : draft
+          const previousDraft = original?.draft_response ?? task.draft_response
+          updateTaskLocal(task.record_id, { draft_response: draft, status: next })
+          setEditing(null)
+          const toastId = toast.loading(pick('Saving task in the background…', '正在后台保存任务……'))
           try {
             // Softr stays English: send the stored English text when the (translated) draft is unchanged.
-            const original = raw?.tasks.find((item) => item.record_id === task.record_id)
-            const draftToSave = original && draft === task.draft_response.trim() ? original.draft_response : draft
             await updateTask({ record_id: task.record_id, task_id: task.id, draft_response: draftToSave, status: next })
-            updateTaskLocal(task.record_id, { draft_response: draft, status: next })
-            setEditing(null)
-            toast.success(pick('Task updated; Activity Log is syncing in the background', '任务已更新，活动日志正在后台同步'))
+            toast.success(pick('Task saved; Activity Log is syncing in the background', '任务已保存，活动日志正在后台同步'), { id: toastId })
             void refresh()
           } catch (reason) {
-            toast.error(reason instanceof Error ? reason.message : pick('Could not update this task', '无法更新该任务'))
+            updateTaskLocal(task.record_id, { draft_response: previousDraft, status: task.status })
+            toast.error(reason instanceof Error ? reason.message : pick('Could not update this task', '无法更新该任务'), { id: toastId })
+            void refresh()
           }
         }}
       />
