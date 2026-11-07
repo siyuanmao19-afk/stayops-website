@@ -31,28 +31,17 @@ function conciseSummary(value: unknown, language: 'zh' | 'en', fallback: string)
   return words.length > 22 ? `${words.slice(0, 22).join(' ')}…` : firstSentence
 }
 
-const MATCH_TERMS: Record<string, RegExp> = {
-  'Guest enquiry': /check[ -]?in|check[ -]?out|arrival|departure|booking|luggage|extend|late|入住|退房|抵达|离店|预订|行李|延迟/i,
-  'Guest issue': /noise|complaint|refund|disturb|quiet|conflict|neighbou?r|噪音|吵|投诉|退款|安静|隔壁|冲突/i,
-  Maintenance: /leak|water|tap|faucet|pipe|broken|repair|electric|air.?con|heating|lock|damage|漏水|水龙头|管道|维修|损坏|空调|暖气|门锁|电/i,
-  Housekeeping: /clean|towel|linen|slipper|amenit|rubbish|trash|清洁|毛巾|床单|拖鞋|用品|垃圾|卫生/i,
-  'Review response': /review|rating|comment|feedback|评价|评分|评论|反馈/i,
-}
-
-function procedureScore(
-  candidate: { item: ReturnType<typeof procedure> },
-  taskType: string,
-  requestText: string,
-) {
-  const procedureText = `${candidate.item.title} ${candidate.item.instructions.join(' ')}`.toLowerCase()
-  let score = candidate.item.task_type === taskType ? 100 : 0
-  const taskTerms = MATCH_TERMS[taskType]
-  if (taskTerms?.test(procedureText)) score += 25
-
-  const requestTokens = new Set(requestText.toLowerCase().match(/[a-z0-9]{3,}|[\p{Script=Han}]{2,}/gu) || [])
-  const procedureTokens = new Set(procedureText.match(/[a-z0-9]{3,}|[\p{Script=Han}]{2,}/gu) || [])
-  for (const token of requestTokens) if (procedureTokens.has(token)) score += 4
-  return score
+function procedureSteps(value: unknown) {
+  const values = Array.isArray(value)
+    ? value.map((step) => String(step).trim()).filter(Boolean)
+    : String(value || '').split(/\r?\n/).map((step) => step.replace(/^\s*\d+[.)、]\s*/, '').trim()).filter(Boolean)
+  return values.length
+    ? values.slice(0, 6)
+    : [
+        'Confirm the guest request, room, timing and current impact.',
+        'Take a safe, reversible interim action and record the outcome.',
+        'Ask the responsible manager to approve any cost, compensation or major arrangement.',
+      ]
 }
 
 export default async (request: Request) => {
@@ -76,11 +65,9 @@ export default async (request: Request) => {
     const selectedRow = propertyRows.find((row) => property(row).property_id === propertyId)
     if (!selectedRow) return json({ error: 'The selected property no longer exists.' }, 404)
     const selectedProperty = property(selectedRow)
-    const allProcedures = procedureRows
+    const available = procedureRows
       .map((row) => ({ row, item: procedure(row) }))
-    const available = allProcedures
       .filter(({ item }) => item.property_id === propertyId)
-    const candidates = available.length ? available : allProcedures
 
     displayTaskId = `AI-${Date.now().toString().slice(-10)}`
     const initial = await createRecord(tableId('tasks'), {
@@ -93,8 +80,8 @@ export default async (request: Request) => {
     })
     taskRecordId = initial.id
 
-    const procedureContext = candidates.length
-      ? candidates.map(({ item }) => ({
+    const procedureContext = available.length
+      ? available.map(({ item }) => ({
           procedure_id: item.procedure_id,
           title: item.title,
           instructions: item.instructions,
@@ -118,7 +105,7 @@ export default async (request: Request) => {
         messages: [
           {
             role: 'system',
-            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must remain one of these exact English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. Write task_type_reason as a natural first-person account from the guest's point of view: 2-3 detailed sentences, about 50-100 Chinese characters or 35-60 English words, explaining what I experienced, how it affected me and what I need. Write summary as one very short sentence containing only the core request: no background and no advice, at most 30 Chinese characters or 16 English words. procedure_id must be the closest relevant supplied ID; choose one whenever allowed_procedures is not empty, and use N/A only when the list is empty. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. staff_action should be 4-6 sentences and guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields except summary. Always write title, task_type_reason, summary, staff_action and guest_reply in English, because the database is kept in English. Also include guest_request_en: a faithful English translation of the guest request (copy it unchanged if it is already English).${language === 'zh' ? ' The staff member reads Simplified Chinese, so also include key zh: an object with the same five keys (title, task_type_reason, summary, staff_action, guest_reply) translated faithfully into natural Simplified Chinese, with the same **bold** phrases and the same length limits (summary at most 30 Chinese characters).' : ''}`,
+            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_phrase, summary, procedure_id, generated_procedure_title, generated_procedure_steps, generated_approval_rule, staff_action, guest_reply. task_type must remain one of these exact internal English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. task_type_phrase is a short, specific English label summarising this request in 2-5 words. Write summary as one very short English sentence containing only the core request, with no background or advice, at most 16 words. Use a supplied procedure_id only when that database procedure clearly addresses this request; otherwise return N/A rather than forcing an unrelated match. When procedure_id is N/A, create a concise English draft procedure in generated_procedure_title, generated_procedure_steps (3-5 actionable string items) and generated_approval_rule. The generated procedure must stay directly on topic, use safe reversible actions, require staff review, and require owner approval for costs, compensation, room moves or policy exceptions. Never promise refunds, compensation, prices, room moves or completion times without approval. staff_action should be 4-6 sentences and guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields except summary. Always write the top-level text in English because the database is kept in English. Also include guest_request_en: a faithful English translation of the guest request (copy it unchanged if it is already English).${language === 'zh' ? ' The staff member reads Simplified Chinese, so also include key zh with title, task_type_phrase, summary, staff_action and guest_reply translated faithfully into natural Simplified Chinese. task_type_phrase must be 2-6 Chinese characters and summary at most 30 Chinese characters.' : ''}`,
           },
           {
             role: 'user',
@@ -137,13 +124,18 @@ export default async (request: Request) => {
 
     const taskType = TYPES.has(String(result.task_type)) ? String(result.task_type) : 'Guest enquiry'
     const requestedProcedure = String(result.procedure_id || '').trim()
-    const exactMatch = candidates.find(({ item }) => item.procedure_id.toLowerCase() === requestedProcedure.toLowerCase())
-    const requestText = `${question} ${String(result.title || '')} ${String(result.summary || '')}`
-    const closestMatch = [...candidates].sort(
-      (left, right) => procedureScore(right, taskType, requestText) - procedureScore(left, taskType, requestText),
-    )[0]
-    const matched = exactMatch || closestMatch
-    const rule = matched?.item.approval_rule || 'Owner approval required (no matching procedure)'
+    const matched = available.find(({ item }) => item.procedure_id.toLowerCase() === requestedProcedure.toLowerCase())
+    const generatedProcedure = matched ? null : {
+      record_id: '',
+      procedure_id: 'AI DRAFT',
+      property_id: propertyId,
+      title: bounded(result.generated_procedure_title, 160, 'AI-generated procedure draft'),
+      task_type: taskType,
+      instructions: procedureSteps(result.generated_procedure_steps),
+      approval_rule: bounded(result.generated_approval_rule, 500, 'Staff review is required before use; costs, compensation, room moves and policy exceptions require owner approval.'),
+      approval_level: 'owner' as const,
+    }
+    const rule = matched?.item.approval_rule || generatedProcedure?.approval_rule || 'Owner approval required'
     const status = /escalate immediately/i.test(rule)
       ? 'Escalated'
       : /owner approval/i.test(rule)
@@ -153,14 +145,14 @@ export default async (request: Request) => {
     const staffAction = bounded(result.staff_action, 3000, 'No verified procedure match. Ask the duty owner to review the request.')
     const guestReply = bounded(result.guest_reply, 2000, 'Thank you for contacting us. Our team is reviewing your request and will update you shortly.')
     const title = bounded(result.title, 160, 'Guest service request')
-    const taskTypeReason = bounded(result.task_type_reason, 1000, `The request is classified as **${taskType}** based on the guest's message.`)
+    const taskTypePhrase = bounded(result.task_type_phrase, 80, taskType)
     const englishRequest = hasHan(question) ? bounded(result.guest_request_en, 1200, '') : ''
     const zh = (language === 'zh' && typeof result.zh === 'object' && result.zh ? result.zh : {}) as Record<string, unknown>
     // Chinese is returned for display only; Softr receives the English fields above.
     const chinese = language === 'zh' && zh.staff_action && zh.guest_reply
       ? {
           title: bounded(zh.title, 160, title),
-          task_type_reason: bounded(zh.task_type_reason, 1000, taskTypeReason),
+          task_type_phrase: bounded(zh.task_type_phrase, 80, taskTypePhrase),
           summary: conciseSummary(zh.summary, 'zh', summary),
           staff_action: bounded(zh.staff_action, 3000, staffAction),
           guest_reply: bounded(zh.guest_reply, 2000, guestReply),
@@ -189,9 +181,9 @@ export default async (request: Request) => {
       task_record_id: taskRecordId,
       task_type: taskType,
       title,
-      task_type_reason: taskTypeReason,
+      task_type_phrase: taskTypePhrase,
       summary,
-      procedure: matched?.item || null,
+      procedure: matched?.item || generatedProcedure,
       staff_action: staffAction,
       guest_reply: guestReply,
       zh: chinese,
@@ -211,5 +203,6 @@ export default async (request: Request) => {
     return safeError(reason)
   }
 }
+
 
 
