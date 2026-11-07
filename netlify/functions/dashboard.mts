@@ -1,9 +1,12 @@
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { listRecords, tableId } from './_lib/softr.mts'
 import { activityLog, customer, procedure, property, task, user } from './_lib/normalise.mts'
+import { requireAuth } from './_lib/auth.mts'
 
 export default async (request: Request) => {
   if (request.method !== 'GET') return methodNotAllowed(['GET'])
+  const unauthorized = await requireAuth()
+  if (unauthorized) return unauthorized
   try {
     const [properties, users, procedures, tasks, activityLogs, customers] = await Promise.all([
       listRecords(tableId('properties')),
@@ -21,10 +24,11 @@ export default async (request: Request) => {
       activityLogs: activityLogs.map(activityLog),
       customers: customers.map(customer),
       loadedAt: new Date().toISOString(),
-    } }, 200, 'public, max-age=10, stale-while-revalidate=30')
+    } })
   } catch (reason) {
     return safeError(reason)
   }
 }
+
 
 

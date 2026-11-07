@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import {
   Building2,
@@ -5,6 +6,8 @@ import {
   ClipboardList,
   History,
   LayoutDashboard,
+  LoaderCircle,
+  LogOut,
   Menu,
   ScrollText,
   Sparkles,
@@ -16,6 +19,7 @@ import { DataProvider } from '@/lib/data-context'
 import { TranslationNotice } from '@/components/app/DataState'
 import { useLanguage } from '@/lib/language'
 import { LanguageToggle } from '@/components/brand/SiteNav'
+import { useAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/app')({
   component: AppLayout,
@@ -52,7 +56,29 @@ function NavList() {
 }
 
 function AppLayout() {
+  const { user, loading, logout } = useAuth()
   const { pick } = useLanguage()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+      window.location.replace(`/login?redirect=${redirect}`)
+    }
+  }, [loading, user])
+
+  if (loading || !user) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-ivory text-stone">
+        <div className="flex items-center gap-3 text-sm"><LoaderCircle className="size-5 animate-spin text-champagne" />{pick('Checking your session…', '正在检查登录状态…')}</div>
+      </div>
+    )
+  }
+
+  async function signOut() {
+    await logout()
+    window.location.assign('/login')
+  }
+
   return (
     <div className="min-h-screen bg-ivory lg:grid lg:grid-cols-[248px_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-paper px-4 py-6 lg:flex">
@@ -65,7 +91,13 @@ function AppLayout() {
         <p className="px-3 text-xs leading-relaxed text-stone">
           {pick('AI output is always a draft. Staff review every reply.', 'AI 输出始终是草稿，每条回复都需员工审核。')}
         </p>
-        <div className="mt-4 px-3"><LanguageToggle /></div>
+        <div className="mt-4 space-y-3 px-3">
+          <p className="truncate text-xs text-stone" title={user.email}>{user.name || user.email}</p>
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <Button type="button" variant="ghost" size="sm" onClick={signOut} className="rounded-full text-stone"><LogOut className="size-4" />{pick('Sign out', '退出')}</Button>
+          </div>
+        </div>
       </aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-paper/90 px-4 backdrop-blur lg:hidden">
@@ -81,7 +113,7 @@ function AppLayout() {
           <SheetContent side="left" className="bg-paper p-5 pt-12">
             <SheetTitle className="sr-only">{pick('Workspace menu', '工作台菜单')}</SheetTitle>
             <SheetDescription className="sr-only">{pick('Navigate between workspace screens', '在工作台页面之间切换')}</SheetDescription>
-            <div className="mb-5"><LanguageToggle /></div>
+            <div className="mb-5 flex items-center justify-between gap-2"><LanguageToggle /><Button type="button" variant="ghost" size="sm" onClick={signOut}><LogOut className="size-4" />{pick('Sign out', '退出')}</Button></div>
             <NavList />
           </SheetContent>
         </Sheet>
@@ -95,4 +127,5 @@ function AppLayout() {
     </div>
   )
 }
+
 

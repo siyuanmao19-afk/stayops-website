@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   ArrowRight,
+  BellRing,
   BookOpenCheck,
   ClipboardList,
   KeyRound,
@@ -84,6 +85,24 @@ const FLOW_ZH = [
   { step: '05', title: '记录与审批', body: '员工修改、审批和最终操作都会写入活动日志。' },
 ]
 
+const UPDATES = [
+  {
+    date: '2026-11-07',
+    en: 'Task status now updates immediately and no longer flashes back to the old value.',
+    zh: '任务状态现在会立即更新，不再短暂跳回旧状态。',
+  },
+  {
+    date: '2026-11-07',
+    en: 'AI summaries are shorter and use a clear task phrase.',
+    zh: 'AI 摘要已缩短，改为清晰的任务短语。',
+  },
+  {
+    date: '2026-11-06',
+    en: 'When no verified procedure matches, AI prepares a relevant draft for staff review.',
+    zh: '没有匹配规范时，AI 会生成相关草稿供员工审核。',
+  },
+]
+
 function Home() {
   const { language, pick } = useLanguage()
   const pains = language === 'zh' ? PAINS_ZH : PAINS
@@ -129,6 +148,32 @@ function Home() {
               <p className="mt-8 font-display text-lg italic text-coffee">{pick('Manage Your Homestay Smarter', '让民宿运营更聪明')}</p>
             </div>
             <HeroCarousel />
+          </div>
+        </section>
+
+        {/* Latest updates */}
+        <section aria-labelledby="latest-updates" className="mx-auto max-w-content px-4 pb-16 sm:px-6">
+          <div className="rounded-3xl border border-champagne/30 bg-paper px-6 py-6 shadow-soft sm:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-2xl bg-champagne/15 text-coffee"><BellRing className="size-5" aria-hidden="true" /></span>
+                <div>
+                  <p className="eyebrow text-champagne">{pick('What changed', '最近更新')}</p>
+                  <h2 id="latest-updates" className="text-2xl font-semibold text-walnut">{pick('StayOps update notes', 'StayOps 更新说明')}</h2>
+                </div>
+              </div>
+              <a href="https://github.com/siyuanmao19-afk/stayops-website/commits/main" target="_blank" rel="noreferrer" className="text-sm font-semibold text-coffee underline decoration-champagne/50 underline-offset-4 hover:text-walnut">
+                {pick('View all GitHub updates', '查看 GitHub 完整记录')}
+              </a>
+            </div>
+            <ul className="mt-5 grid gap-3 md:grid-cols-3">
+              {UPDATES.map((item) => (
+                <li key={`${item.date}-${item.en}`} className="rounded-2xl bg-ivory/70 p-4">
+                  <time className="text-xs font-semibold text-champagne">{item.date}</time>
+                  <p className="mt-1.5 text-sm leading-relaxed text-charcoal">{language === 'zh' ? item.zh : item.en}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
@@ -325,4 +370,5 @@ function PreviewCard({ label, text, wide }: { label: string; text: string; wide?
     </div>
   )
 }
+
 

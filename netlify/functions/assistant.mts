@@ -2,6 +2,7 @@ import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { createRecord, FIELD_IDS, listRecords, tableId, updateRecord } from './_lib/softr.mts'
 import { procedure, property } from './_lib/normalise.mts'
 import { hasHan } from './_lib/translate.mts'
+import { requireAuth } from './_lib/auth.mts'
 
 const TYPES = new Set(['Guest enquiry', 'Guest issue', 'Maintenance', 'Housekeeping', 'Review response'])
 
@@ -46,6 +47,8 @@ function procedureSteps(value: unknown) {
 
 export default async (request: Request) => {
   if (request.method !== 'POST') return methodNotAllowed(['POST'])
+  const unauthorized = await requireAuth()
+  if (unauthorized) return unauthorized
   let taskRecordId = ''
   let displayTaskId = ''
   try {
@@ -203,6 +206,7 @@ export default async (request: Request) => {
     return safeError(reason)
   }
 }
+
 
 
 

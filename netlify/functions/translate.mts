@@ -1,5 +1,6 @@
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { translateTexts } from './_lib/translate.mts'
+import { requireAuth } from './_lib/auth.mts'
 
 const MAX_TEXTS = 600
 const MAX_TEXT_LENGTH = 4000
@@ -7,6 +8,8 @@ const MAX_TEXT_LENGTH = 4000
 /** POST { texts: string[], target: 'zh' } → { data: { translations: Record<source, translated> } } */
 export default async (request: Request) => {
   if (request.method !== 'POST') return methodNotAllowed(['POST'])
+  const unauthorized = await requireAuth()
+  if (unauthorized) return unauthorized
   try {
     const body = await request.json() as Record<string, unknown>
     const target = body.target === 'en' ? 'en' : 'zh'
@@ -21,3 +24,4 @@ export default async (request: Request) => {
     return safeError(reason)
   }
 }
+

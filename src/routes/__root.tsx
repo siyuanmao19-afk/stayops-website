@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { NotFoundPage } from '@/components/error-pages'
 import { LanguageProvider } from '@/lib/language'
+import { AuthProvider } from '@/lib/auth'
 
 import '../styles.css'
 
@@ -65,11 +66,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <LanguageProvider><TooltipProvider>{children}</TooltipProvider></LanguageProvider>
+        <LanguageProvider><AuthProvider><TooltipProvider>{children}</TooltipProvider></AuthProvider></LanguageProvider>
         <Toaster />
         <Scripts />
       </body>
     </html>
   )
 }
+
 

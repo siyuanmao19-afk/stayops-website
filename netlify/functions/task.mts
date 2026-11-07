@@ -1,9 +1,12 @@
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { getRecord, tableId } from './_lib/softr.mts'
 import { task } from './_lib/normalise.mts'
+import { requireAuth } from './_lib/auth.mts'
 
 export default async (request: Request) => {
   if (request.method !== 'GET') return methodNotAllowed(['GET'])
+  const unauthorized = await requireAuth()
+  if (unauthorized) return unauthorized
   const recordId = new URL(request.url).searchParams.get('id')?.trim()
   if (!recordId) return json({ error: 'A task record ID is required.' }, 400)
   try {
@@ -12,5 +15,6 @@ export default async (request: Request) => {
     return safeError(reason)
   }
 }
+
 
 

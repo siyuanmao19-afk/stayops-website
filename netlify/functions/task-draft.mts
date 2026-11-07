@@ -1,6 +1,7 @@
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { createRecord, FIELD_IDS, tableId, updateRecord } from './_lib/softr.mts'
 import { toEnglish } from './_lib/translate.mts'
+import { requireAuth } from './_lib/auth.mts'
 
 const STATUS = new Set(['Open', 'In Progress', 'Pending Approval', 'Escalated', 'Draft Ready', 'Resolved'])
 
@@ -10,6 +11,8 @@ type NetlifyContext = {
 
 export default async (request: Request, context: NetlifyContext) => {
   if (request.method !== 'PATCH') return methodNotAllowed(['PATCH'])
+  const unauthorized = await requireAuth()
+  if (unauthorized) return unauthorized
   try {
     const body = await request.json() as Record<string, unknown>
     const recordId = String(body.record_id || '').trim()
