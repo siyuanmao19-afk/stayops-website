@@ -164,7 +164,7 @@ export default async (request: Request) => {
       ...(englishRequest ? { [FIELD_IDS.tasks.description]: englishRequest } : {}),
       [FIELD_IDS.tasks.task_type]: taskType,
       [FIELD_IDS.tasks.procedure_id]: matched?.row.id || '',
-      [FIELD_IDS.tasks.ai_summary]: summary,
+      [FIELD_IDS.tasks.ai_summary]: taskTypePhrase,
       [FIELD_IDS.tasks.ai_recommendation]: staffAction,
       [FIELD_IDS.tasks.draft_response]: guestReply,
       [FIELD_IDS.tasks.status]: status,
@@ -203,6 +203,7 @@ export default async (request: Request) => {
     return safeError(reason)
   }
 }
+
 
 
 
