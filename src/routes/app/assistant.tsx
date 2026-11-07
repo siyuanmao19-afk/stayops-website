@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ApprovalTag, PageHeader, TypeBadge } from '@/components/app/PageHeader'
+import { ApprovalTag, PageHeader } from '@/components/app/PageHeader'
 import { DataState } from '@/components/app/DataState'
 import { RichText, stripBold } from '@/components/brand/RichText'
 import { askAssistant, updateTask } from '@/lib/api'
@@ -55,7 +55,7 @@ function AssistantPage() {
     if (language !== 'zh' || !result) return
     const p = result.procedure
     void ensureTranslated([
-      ...(result.zh ? [] : [result.task_type_reason, result.summary, result.staff_action, result.guest_reply]),
+      ...(result.zh ? [] : [result.task_type_phrase, result.summary, result.staff_action, result.guest_reply]),
       ...(p ? [p.title, p.approval_rule, ...p.instructions] : []),
     ])
   }, [language, result, ensureTranslated])
@@ -64,7 +64,7 @@ function AssistantPage() {
     ? language === 'zh'
       ? result.zh ?? {
           title: tx(result.title),
-          task_type_reason: tx(result.task_type_reason),
+          task_type_phrase: tx(result.task_type_phrase),
           summary: tx(result.summary),
           staff_action: tx(result.staff_action),
           guest_reply: tx(result.guest_reply),
@@ -238,8 +238,13 @@ function AssistantPage() {
               )}
             </div>
 
-            <ResultCard n={1} icon={<Tag />} title={pick('Task Type', '任务类型')} extra={<TypeBadge type={result.task_type} />}>
-              <RichText text={view.task_type_reason} />
+            <ResultCard
+              n={1}
+              icon={<Tag />}
+              title={pick('Task Type', '任务类型')}
+              extra={<span className="rounded-full border border-champagne/50 bg-sand/30 px-3 py-1 text-xs font-medium text-coffee">{view.task_type_phrase}</span>}
+            >
+              <p className="whitespace-pre-line">{question}</p>
             </ResultCard>
 
             <ResultCard n={2} icon={<FileText />} title={pick('Core Request Summary', '核心需求摘要')}>
@@ -417,4 +422,5 @@ function ResultCard({
     </article>
   )
 }
+
 
