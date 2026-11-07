@@ -238,13 +238,8 @@ function AssistantPage() {
               )}
             </div>
 
-            <ResultCard
-              n={1}
-              icon={<Tag />}
-              title={pick('Task Type', '任务类型')}
-              extra={<span className="rounded-full border border-champagne/50 bg-sand/30 px-3 py-1 text-xs font-medium text-coffee">{view.task_type_phrase}</span>}
-            >
-              <p className="whitespace-pre-line">{question}</p>
+            <ResultCard n={1} icon={<Tag />} title={pick('Task Type', '任务类型')}>
+              <p>{view.task_type_phrase}</p>
             </ResultCard>
 
             <ResultCard n={2} icon={<FileText />} title={pick('Core Request Summary', '核心需求摘要')}>
