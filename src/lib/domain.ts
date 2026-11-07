@@ -116,7 +116,7 @@ export interface DashboardData {
 /** AI text shown to the reader; the English version is what Softr stores. */
 export interface AssistantText {
   title: string
-  task_type_reason: string
+  task_type_phrase: string
   summary: string
   staff_action: string
   guest_reply: string
@@ -147,3 +147,4 @@ export const EXAMPLE_QUESTIONS_ZH = [
   '有客人反映隔壁房间在安静时段后仍大声说话。',
   '一家人想多要两条浴巾和两双拖鞋。',
 ]
+
