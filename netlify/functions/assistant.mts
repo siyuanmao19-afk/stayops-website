@@ -19,6 +19,41 @@ function bounded(value: unknown, max: number, fallback = '') {
   return result.slice(0, max)
 }
 
+function conciseSummary(value: unknown, language: 'zh' | 'en', fallback: string) {
+  const plain = String(value ?? fallback).replace(/\*\*/g, '').trim()
+  if (language === 'zh') {
+    const firstSentence = plain.match(/^.*?[。！？!?](?:\s|$)/)?.[0]?.trim() || plain
+    return firstSentence.length > 52 ? `${firstSentence.slice(0, 51).trim()}…` : firstSentence
+  }
+  const firstSentence = plain.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || plain
+  const words = firstSentence.split(/\s+/).filter(Boolean)
+  return words.length > 22 ? `${words.slice(0, 22).join(' ')}…` : firstSentence
+}
+
+const MATCH_TERMS: Record<string, RegExp> = {
+  'Guest enquiry': /check[ -]?in|check[ -]?out|arrival|departure|booking|luggage|extend|late|入住|退房|抵达|离店|预订|行李|延迟/i,
+  'Guest issue': /noise|complaint|refund|disturb|quiet|conflict|neighbou?r|噪音|吵|投诉|退款|安静|隔壁|冲突/i,
+  Maintenance: /leak|water|tap|faucet|pipe|broken|repair|electric|air.?con|heating|lock|damage|漏水|水龙头|管道|维修|损坏|空调|暖气|门锁|电/i,
+  Housekeeping: /clean|towel|linen|slipper|amenit|rubbish|trash|清洁|毛巾|床单|拖鞋|用品|垃圾|卫生/i,
+  'Review response': /review|rating|comment|feedback|评价|评分|评论|反馈/i,
+}
+
+function procedureScore(
+  candidate: { item: ReturnType<typeof procedure> },
+  taskType: string,
+  requestText: string,
+) {
+  const procedureText = `${candidate.item.title} ${candidate.item.instructions.join(' ')}`.toLowerCase()
+  let score = candidate.item.task_type === taskType ? 100 : 0
+  const taskTerms = MATCH_TERMS[taskType]
+  if (taskTerms?.test(procedureText)) score += 25
+
+  const requestTokens = new Set(requestText.toLowerCase().match(/[a-z0-9]{3,}|[\p{Script=Han}]{2,}/gu) || [])
+  const procedureTokens = new Set(procedureText.match(/[a-z0-9]{3,}|[\p{Script=Han}]{2,}/gu) || [])
+  for (const token of requestTokens) if (procedureTokens.has(token)) score += 4
+  return score
+}
+
 export default async (request: Request) => {
   if (request.method !== 'POST') return methodNotAllowed(['POST'])
   let taskRecordId = ''
@@ -40,9 +75,11 @@ export default async (request: Request) => {
     const selectedRow = propertyRows.find((row) => property(row).property_id === propertyId)
     if (!selectedRow) return json({ error: 'The selected property no longer exists.' }, 404)
     const selectedProperty = property(selectedRow)
-    const available = procedureRows
+    const allProcedures = procedureRows
       .map((row) => ({ row, item: procedure(row) }))
+    const available = allProcedures
       .filter(({ item }) => item.property_id === propertyId)
+    const candidates = available.length ? available : allProcedures
 
     displayTaskId = `AI-${Date.now().toString().slice(-10)}`
     const initial = await createRecord(tableId('tasks'), {
@@ -55,8 +92,8 @@ export default async (request: Request) => {
     })
     taskRecordId = initial.id
 
-    const procedureContext = available.length
-      ? available.map(({ item }) => ({
+    const procedureContext = candidates.length
+      ? candidates.map(({ item }) => ({
           procedure_id: item.procedure_id,
           title: item.title,
           instructions: item.instructions,
@@ -80,7 +117,7 @@ export default async (request: Request) => {
         messages: [
           {
             role: 'system',
-            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must remain one of these exact English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. procedure_id must be one supplied ID or N/A. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. summary should be 2-3 sentences, staff_action 4-6 sentences, guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields. Write title, task_type_reason, summary, staff_action and guest_reply in ${language === 'zh' ? 'Simplified Chinese' : 'English'}.`,
+            content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_reason, summary, procedure_id, staff_action, guest_reply. task_type must remain one of these exact English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. Write task_type_reason as a natural first-person account from the guest's point of view: 2-3 detailed sentences, about 50-100 Chinese characters or 35-60 English words, explaining what I experienced, how it affected me and what I need. Write summary as one very short sentence containing only the core request: no background and no advice, at most 30 Chinese characters or 16 English words. procedure_id must be the closest relevant supplied ID; choose one whenever allowed_procedures is not empty, and use N/A only when the list is empty. Never invent a procedure. Never promise refunds, compensation, prices, room moves or completion times without approval. staff_action should be 4-6 sentences and guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields except summary. Write title, task_type_reason, summary, staff_action and guest_reply in ${language === 'zh' ? 'Simplified Chinese' : 'English'}.`,
           },
           {
             role: 'user',
@@ -99,14 +136,19 @@ export default async (request: Request) => {
 
     const taskType = TYPES.has(String(result.task_type)) ? String(result.task_type) : 'Guest enquiry'
     const requestedProcedure = String(result.procedure_id || '').trim()
-    const matched = available.find(({ item }) => item.procedure_id === requestedProcedure)
+    const exactMatch = candidates.find(({ item }) => item.procedure_id.toLowerCase() === requestedProcedure.toLowerCase())
+    const requestText = `${question} ${String(result.title || '')} ${String(result.summary || '')}`
+    const closestMatch = [...candidates].sort(
+      (left, right) => procedureScore(right, taskType, requestText) - procedureScore(left, taskType, requestText),
+    )[0]
+    const matched = exactMatch || closestMatch
     const rule = matched?.item.approval_rule || 'Owner approval required (no matching procedure)'
     const status = /escalate immediately/i.test(rule)
       ? 'Escalated'
       : /owner approval/i.test(rule)
         ? 'Pending Approval'
         : 'Draft Ready'
-    const summary = bounded(result.summary, 2000, question)
+    const summary = conciseSummary(result.summary, language, question)
     const staffAction = bounded(result.staff_action, 3000, 'No verified procedure match. Ask the duty owner to review the request.')
     const guestReply = bounded(result.guest_reply, 2000, 'Thank you for contacting us. Our team is reviewing your request and will update you shortly.')
     const title = bounded(result.title, 160, 'Guest service request')
