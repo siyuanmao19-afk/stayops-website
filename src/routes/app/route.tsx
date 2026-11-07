@@ -55,8 +55,8 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-ivory lg:grid lg:grid-cols-[248px_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-paper px-4 py-6 lg:flex">
-        <Link to="/" className="px-2" aria-label="StayOps home">
-          <Logo />
+        <Link to="/" className="px-2" aria-label={pick('StayOps home', 'StayOps 首页')}>
+          <Logo className="h-10" />
         </Link>
         <nav aria-label={pick('Workspace', '工作台')} className="mt-10 flex-1">
           <NavList />
@@ -68,8 +68,8 @@ function AppLayout() {
       </aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-paper/90 px-4 backdrop-blur lg:hidden">
-        <Link to="/" aria-label="StayOps home">
-          <Logo />
+        <Link to="/" aria-label={pick('StayOps home', 'StayOps 首页')}>
+          <Logo className="h-8" />
         </Link>
         <Sheet>
           <SheetTrigger asChild>

@@ -23,6 +23,7 @@ import { updateTask } from '@/lib/api'
 import { useStayOpsData } from '@/lib/data-context'
 import { TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from '@/lib/domain'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/language'
 
 export const Route = createFileRoute('/app/tasks')({
   component: TasksPage,
@@ -32,6 +33,7 @@ const ALL = 'all'
 
 function TasksPage() {
   const { data, loading, error, refresh, propertyById } = useStayOpsData()
+  const { pick, tv } = useLanguage()
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [query, setQuery] = useState('')
   const [property, setProperty] = useState(ALL)
@@ -51,7 +53,7 @@ function TasksPage() {
   }, [data, query, property, type, status])
 
   if (loading && !data) return <DataState loading />
-  if (error || !data) return <DataState error={error || 'No data returned.'} retry={refresh} />
+  if (error || !data) return <DataState error={error || pick('No data returned.', '未返回数据。')} retry={refresh} />
 
   return (
     <>
@@ -60,11 +62,11 @@ function TasksPage() {
         title="Every request, in one place"
         description="Original AI analysis stays untouched. Staff can refine the reply draft and move the status forward."
         actions={
-          <div className="inline-flex rounded-full border border-border bg-paper p-1" role="group" aria-label="Layout">
-            <ViewButton active={view === 'cards'} onClick={() => setView('cards')} label="Cards">
+          <div className="inline-flex rounded-full border border-border bg-paper p-1" role="group" aria-label={pick('Layout', '布局')}>
+            <ViewButton active={view === 'cards'} onClick={() => setView('cards')} label={pick('Cards', '卡片')}>
               <LayoutGrid className="size-4" />
             </ViewButton>
-            <ViewButton active={view === 'table'} onClick={() => setView('table')} label="Table">
+            <ViewButton active={view === 'table'} onClick={() => setView('table')} label={pick('Table', '表格')}>
               <Rows3 className="size-4" />
             </ViewButton>
           </div>
@@ -73,22 +75,22 @@ function TasksPage() {
 
       <div className="mb-6 grid gap-3 rounded-3xl border border-border bg-paper p-4 shadow-soft sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="relative">
-          <Label htmlFor="task-search" className="sr-only">Search tasks</Label>
+          <Label htmlFor="task-search" className="sr-only">{pick('Search tasks', '搜索任务')}</Label>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone" aria-hidden="true" />
           <Input
             id="task-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title, guest note, staff…"
+            placeholder={pick('Search title, guest note, staff…', '搜索标题、客人留言、员工……')}
             className="h-10 rounded-xl bg-ivory/50 pl-9"
           />
         </div>
-        <Filter label="Property" allLabel="All properties" value={property} onChange={setProperty}
+        <Filter label={pick('Property', '房源')} allLabel={pick('All properties', '全部房源')} value={property} onChange={setProperty}
           options={data.properties.map((p) => ({ value: p.property_id, label: p.name }))} />
-        <Filter label="Task type" allLabel="All task types" value={type} onChange={setType}
-          options={TASK_TYPES.map((t) => ({ value: t, label: t }))} />
-        <Filter label="Status" allLabel="All statuses" value={status} onChange={setStatus}
-          options={TASK_STATUSES.map((s) => ({ value: s, label: s }))} />
+        <Filter label={pick('Task type', '任务类型')} allLabel={pick('All task types', '全部任务类型')} value={type} onChange={setType}
+          options={TASK_TYPES.map((t) => ({ value: t, label: tv(t) }))} />
+        <Filter label={pick('Status', '状态')} allLabel={pick('All statuses', '全部状态')} value={status} onChange={setStatus}
+          options={TASK_STATUSES.map((s) => ({ value: s, label: tv(s) }))} />
       </div>
 
       {filtered.length === 0 ? (
@@ -106,7 +108,7 @@ function TasksPage() {
                 <TypeBadge type={t.task_type} />
                 <StatusBadge status={t.status} />
                 {t.urgent && (
-                  <span className="rounded-full bg-terracotta px-2 py-0.5 text-xs font-medium text-paper">Urgent</span>
+                  <span className="rounded-full bg-terracotta px-2 py-0.5 text-xs font-medium text-paper">{pick('Urgent', '紧急')}</span>
                 )}
               </div>
               <h2 className="mt-3 text-2xl font-semibold leading-tight text-walnut">{t.title}</h2>
@@ -114,15 +116,15 @@ function TasksPage() {
               <p className="mt-3 text-sm text-charcoal">{t.description}</p>
 
               <dl className="mt-4 space-y-3 rounded-2xl bg-ivory/70 p-4 text-sm">
-                <Field label="AI summary"><RichText text={t.ai_summary} /></Field>
-                <Field label="Procedure">
-                  {t.procedure_id ? <span className="font-mono text-xs text-walnut">{t.procedure_id}</span> : <span className="text-terracotta">No verified procedure match</span>}
+                <Field label={pick('AI summary', 'AI 摘要')}><RichText text={t.ai_summary} /></Field>
+                <Field label={pick('Procedure', '操作规范')}>
+                  {t.procedure_id ? <span className="font-mono text-xs text-walnut">{t.procedure_id}</span> : <span className="text-terracotta">{pick('No verified procedure match', '未匹配到已验证的操作规范')}</span>}
                 </Field>
-                <Field label="AI recommendation"><RichText text={t.ai_recommendation} /></Field>
+                <Field label={pick('AI recommendation', 'AI 建议')}><RichText text={t.ai_recommendation} /></Field>
               </dl>
 
               <div className="mt-4 rounded-2xl border border-champagne/40 p-4 text-sm">
-                <p className="eyebrow text-champagne">Reply draft</p>
+                <p className="eyebrow text-champagne">{pick('Reply draft', '回复草稿')}</p>
                 <p className="mt-1 text-charcoal">{t.draft_response}</p>
               </div>
 
@@ -131,7 +133,7 @@ function TasksPage() {
                   <User className="size-4" aria-hidden="true" /> {t.assigned_to}
                 </span>
                 <Button size="sm" variant="outline" className="rounded-full" onClick={() => setEditing(t)}>
-                  <PenLine aria-hidden="true" /> Edit draft & status
+                  <PenLine aria-hidden="true" /> {pick('Edit draft & status', '编辑草稿和状态')}
                 </Button>
               </div>
             </article>
@@ -142,13 +144,13 @@ function TasksPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Task</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Procedure</TableHead>
-                <TableHead className="min-w-64">AI summary</TableHead>
-                <TableHead>Assigned</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
+                <TableHead>{pick('Task', '任务')}</TableHead>
+                <TableHead>{pick('Type', '类型')}</TableHead>
+                <TableHead>{pick('Procedure', '操作规范')}</TableHead>
+                <TableHead className="min-w-64">{pick('AI summary', 'AI 摘要')}</TableHead>
+                <TableHead>{pick('Assigned', '负责人')}</TableHead>
+                <TableHead>{pick('Status', '状态')}</TableHead>
+                <TableHead><span className="sr-only">{pick('Actions', '操作')}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -164,7 +166,7 @@ function TasksPage() {
                   <TableCell className="text-sm">{t.assigned_to}</TableCell>
                   <TableCell><StatusBadge status={t.status} /></TableCell>
                   <TableCell>
-                    <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setEditing(t)} aria-label={`Edit ${t.title}`}>
+                    <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setEditing(t)} aria-label={pick(`Edit ${t.title}`, `编辑 ${t.title}`)}>
                       <PenLine />
                     </Button>
                   </TableCell>
@@ -183,9 +185,9 @@ function TasksPage() {
             await updateTask({ record_id: task.record_id, task_id: task.id, draft_response: draft, status: next })
             setEditing(null)
             await refresh()
-            toast.success('Draft, status and Activity Log updated')
+            toast.success(pick('Draft, status and Activity Log updated', '草稿、状态和活动日志已更新'))
           } catch (reason) {
-            toast.error(reason instanceof Error ? reason.message : 'Could not update this task')
+            toast.error(reason instanceof Error ? reason.message : pick('Could not update this task', '无法更新该任务'))
           }
         }}
       />
@@ -202,6 +204,7 @@ function EditDialog({
   onClose: () => void
   onSave: (task: Task, draft: string, status: TaskStatus) => void | Promise<void>
 }) {
+  const { pick, tv } = useLanguage()
   const [draft, setDraft] = useState('')
   const [status, setStatus] = useState<TaskStatus>('Open')
   const [lastId, setLastId] = useState<string | null>(null)
@@ -218,29 +221,29 @@ function EditDialog({
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-walnut">{task?.title}</DialogTitle>
           <DialogDescription>
-            Only the reply draft and status can change. The original AI analysis is preserved for the audit trail.
+            {pick('Only the reply draft and status can change. The original AI analysis is preserved for the audit trail.', '只能修改回复草稿和状态，原始 AI 分析会保留用于审计追踪。')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-draft">Reply draft</Label>
+            <Label htmlFor="edit-draft">{pick('Reply draft', '回复草稿')}</Label>
             <Textarea id="edit-draft" value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-36 rounded-xl" aria-invalid={tooLong || !draft.trim()} />
-            {tooLong && <p className="text-xs text-terracotta">Keep the draft under 2000 characters.</p>}
+            {tooLong && <p className="text-xs text-terracotta">{pick('Keep the draft under 2000 characters.', '草稿请控制在 2000 字以内。')}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-status">Status</Label>
+            <Label htmlFor="edit-status">{pick('Status', '状态')}</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
               <SelectTrigger id="edit-status" className="w-full rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{tv(s)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" className="rounded-full" onClick={() => { setLastId(null); onClose() }}>Cancel</Button>
+          <Button variant="outline" className="rounded-full" onClick={() => { setLastId(null); onClose() }}>{pick('Cancel', '取消')}</Button>
           <Button className="rounded-full" disabled={tooLong || !draft.trim()} onClick={() => { if (task) { setLastId(null); void onSave(task, draft.trim(), status) } }}>
-            Save changes
+            {pick('Save changes', '保存修改')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -38,10 +38,10 @@ export function SiteNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-ivory/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-content items-center justify-between gap-6 px-4 sm:px-6">
-        <Link to="/" aria-label="StayOps home" className="rounded-lg">
+        <Link to="/" aria-label={pick('StayOps home', 'StayOps 首页')} className="rounded-lg">
           <Logo />
         </Link>
-        <nav aria-label="Primary" className="hidden lg:block">
+        <nav aria-label={pick('Primary', '主导航')} className="hidden lg:block">
           <ul className="flex items-center gap-1">
             {APP_NAV.map((item) => (
               <li key={item.to}>
@@ -67,8 +67,8 @@ export function SiteNav() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="bg-paper">
-              <SheetTitle className="sr-only">Menu</SheetTitle>
-              <SheetDescription className="sr-only">Navigate StayOps</SheetDescription>
+              <SheetTitle className="sr-only">{pick('Menu', '菜单')}</SheetTitle>
+              <SheetDescription className="sr-only">{pick('Navigate StayOps', '浏览 StayOps')}</SheetDescription>
               <div className="flex flex-col gap-1 p-6 pt-12">
                 {APP_NAV.map((item) => (
                   <Link
@@ -97,7 +97,7 @@ export function SiteFooter() {
     <footer className="border-t border-border bg-paper">
       <div className="mx-auto grid max-w-content gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
         <div className="space-y-3">
-          <Logo />
+          <Logo className="h-12" />
           <p className="font-display text-xl italic text-coffee">{pick('Manage Your Homestay Smarter', '让民宿运营更聪明')}</p>
           <p className="max-w-sm text-sm text-stone">
             {pick(

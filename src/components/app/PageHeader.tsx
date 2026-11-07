@@ -1,4 +1,4 @@
-import { useLanguage } from '@/lib/language'
+import { translateValue, useLanguage } from '@/lib/language'
 
 const UI_ZH: Record<string, string> = {
   'Overview': '概览',
@@ -27,6 +27,7 @@ const UI_ZH: Record<string, string> = {
   'No procedures found': '未找到操作规范',
   'This property may not have a written procedure for that request yet.': '该房源可能还没有针对这一请求的书面流程。',
   'No tasks match': '没有符合条件的任务',
+  'Try clearing a filter or searching for a different word.': '试试清除筛选条件，或换个关键词搜索。',
 }
 
 function zh(value: string) { return UI_ZH[value] ?? value }
@@ -79,7 +80,7 @@ export function TypeBadge({ type }: { type: string }) {
   }
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles[type] ?? 'border-border text-stone'}`}>
-      {language === 'zh' ? ({ Safety: '安全', Maintenance: '维修', Housekeeping: '客房服务', 'Review response': '评价回复', 'Guest enquiry': '客人咨询', 'Guest issue': '客诉问题' } as Record<string, string>)[type] ?? type : type}
+      {translateValue(type, language)}
     </span>
   )
 }
@@ -96,7 +97,7 @@ export function StatusBadge({ status }: { status: string }) {
   }
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles[status] ?? 'border-border text-stone'}`}>
-      {language === 'zh' ? ({ Open: '待处理', 'In Progress': '处理中', 'Pending Approval': '等待审批', Escalated: '已升级', 'Draft Ready': '草稿已生成', Resolved: '已解决' } as Record<string, string>)[status] ?? status : status}
+      {translateValue(status, language)}
     </span>
   )
 }
