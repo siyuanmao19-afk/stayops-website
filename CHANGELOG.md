@@ -2,6 +2,8 @@
 
 ## 2026-11-07
 
+- **Registration code / 注册邀请码：** New accounts now require a server-validated registration code; existing accounts and login behavior are unchanged. / 新账号必须输入由服务端验证的邀请码，已有账号和登录方式不变。
+
 - **Login / 登录：** Added simple email registration and sign-in. Workspace data now requires an authenticated member. / 新增简易邮箱注册和登录，工作台数据需要登录后访问。
 - **Task status / 任务状态：** Status changes update immediately and no longer flash back to the previous value. / 状态修改后立即显示，不再短暂跳回旧状态。
 - **AI summaries / AI 摘要：** Summaries now use concise task phrases. / 摘要改为简短清晰的任务短语。
