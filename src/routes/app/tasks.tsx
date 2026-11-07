@@ -191,7 +191,6 @@ function TasksPage() {
             // Softr stays English: send the stored English text when the (translated) draft is unchanged.
             await updateTask({ record_id: task.record_id, task_id: task.id, draft_response: draftToSave, status: next })
             toast.success(pick('Task saved; Activity Log is syncing in the background', '任务已保存，活动日志正在后台同步'), { id: toastId })
-            void refresh()
           } catch (reason) {
             updateTaskLocal(task.record_id, { draft_response: previousDraft, status: task.status })
             toast.error(reason instanceof Error ? reason.message : pick('Could not update this task', '无法更新该任务'), { id: toastId })
