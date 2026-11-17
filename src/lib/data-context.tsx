@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { getDashboard } from './api'
 import type { DashboardData, Property, Task } from './domain'
 import { translateValue, useLanguage } from './language'
@@ -6,18 +6,18 @@ import {
   cachedTranslations,
   dashboardTexts,
   translateDashboard,
-  translateToChinese,
+  translateForDisplay,
   type TranslationMap,
 } from './translation'
 
 type DataState = {
-  /** Data in the reader's language: Chinese display text when 中文 is selected. */
+  /** Data in the reader's language, including legacy records stored in Chinese. */
   data: DashboardData | null
-  /** Original English data exactly as stored in Softr (use for anything written back). */
+  /** Original data exactly as stored in Softr (use for anything written back). */
   raw: DashboardData | null
   loading: boolean
   error: string | null
-  /** True while Chinese versions of new Softr text are being fetched. */
+  /** True while display translations of Softr text are being fetched. */
   translating: boolean
   translationError: string | null
   refresh: () => Promise<void>
@@ -25,7 +25,7 @@ type DataState = {
   propertyById: (id: string) => Property | undefined
   /** Translate one piece of Softr text for display (falls back to the original). */
   tx: (text: string) => string
-  /** Make sure Chinese versions exist for extra texts (e.g. an assistant result). */
+  /** Make sure display translations exist for extra texts (e.g. an assistant result). */
   ensureTranslated: (texts: string[]) => Promise<void>
 }
 
@@ -36,10 +36,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [raw, setRaw] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Browser-cached Chinese text (empty during SSR, where no live data is rendered yet).
-  const [translations, setTranslations] = useState<TranslationMap>(() => cachedTranslations())
+  const [translations, setTranslations] = useState<Record<'zh' | 'en', TranslationMap>>(() => ({
+    zh: cachedTranslations('zh'),
+    en: cachedTranslations('en'),
+  }))
   const [translating, setTranslating] = useState(false)
   const [translationError, setTranslationError] = useState<string | null>(null)
+  const translationRun = useRef(0)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -57,7 +60,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setRaw((current) => current
       ? {
           ...current,
-          tasks: current.tasks.map((task) => task.record_id === recordId ? { ...task, ...patch } : task),
+          tasks: current.tasks.map((task) => {
+            if (task.record_id !== recordId) return task
+            const status = patch.status ?? task.status
+            return {
+              ...task,
+              ...patch,
+              urgent: status === 'Escalated' || /urgent|hazard|leak|smoke|gas/i.test(task.description),
+            }
+          }),
         }
       : current)
   }, [])
@@ -67,29 +78,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [refresh])
 
   const ensureTranslated = useCallback(async (texts: string[]) => {
-    if (language !== 'zh' || texts.length === 0) return
+    if (texts.length === 0) {
+      translationRun.current += 1
+      setTranslating(false)
+      setTranslationError(null)
+      return
+    }
+    const target = language
+    const run = ++translationRun.current
     setTranslating(true)
     setTranslationError(null)
     try {
-      setTranslations(await translateToChinese(texts))
+      const translated = await translateForDisplay(texts, target)
+      setTranslations((current) => ({ ...current, [target]: translated }))
     } catch (reason) {
-      setTranslations(cachedTranslations())
-      setTranslationError(reason instanceof Error ? reason.message : 'Translation failed.')
+      setTranslations((current) => ({ ...current, [target]: cachedTranslations(target) }))
+      if (run === translationRun.current) setTranslationError(reason instanceof Error ? reason.message : 'Translation failed.')
     } finally {
-      setTranslating(false)
+      if (run === translationRun.current) setTranslating(false)
     }
   }, [language])
 
   useEffect(() => {
-    if (raw && language === 'zh') void ensureTranslated(dashboardTexts(raw))
+    if (raw) void ensureTranslated(dashboardTexts(raw, language))
   }, [raw, language, ensureTranslated])
 
   const value = useMemo<DataState>(() => {
     const tx = (text: string) => {
-      if (language !== 'zh' || !text) return text
-      return translations[text] ?? translateValue(text, 'zh')
+      if (!text) return text
+      return translations[language][text] ?? translateValue(text, language)
     }
-    const data = raw && language === 'zh' ? translateDashboard(raw, tx) : raw
+    const data = raw ? translateDashboard(raw, tx) : null
     return {
       data,
       raw,
@@ -113,4 +132,5 @@ export function useStayOpsData() {
   if (!value) throw new Error('useStayOpsData must be used inside DataProvider')
   return value
 }
+
 

@@ -19,23 +19,24 @@ export function DataState({ loading, error, retry }: { loading?: boolean; error?
 
 
 
-/** Shown in Chinese mode while live Softr text is being translated (Softr itself stays English). */
+/** Shown when source records need translation into the selected display language. */
 export function TranslationNotice() {
-  const { language } = useLanguage()
+  const { language, pick } = useLanguage()
   const { translating, translationError, raw, ensureTranslated } = useStayOpsData()
-  if (language !== 'zh' || (!translating && !translationError)) return null
+  if (!translating && !translationError) return null
   return (
     <div role="status" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-champagne/40 bg-sand/30 px-4 py-2.5 text-sm text-coffee">
       <span className="inline-flex items-center gap-2">
         {translating
-          ? <><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />正在将数据库内容翻译成中文……</>
-          : <><AlertCircle className="size-4 text-terracotta" aria-hidden="true" />部分内容暂时无法翻译，正在显示英文原文。</>}
+          ? <><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />{pick('Translating stored text into English…', '正在将数据库内容翻译成中文……')}</>
+          : <><AlertCircle className="size-4 text-terracotta" aria-hidden="true" />{pick('Some text could not be translated; the original is shown.', '部分内容暂时无法翻译，正在显示原文。')}</>}
       </span>
       {!translating && raw && (
-        <Button size="sm" variant="outline" className="rounded-full" onClick={() => void ensureTranslated(dashboardTexts(raw))}>
-          <RefreshCw aria-hidden="true" /> 重试翻译
+        <Button size="sm" variant="outline" className="rounded-full" onClick={() => void ensureTranslated(dashboardTexts(raw, language))}>
+          <RefreshCw aria-hidden="true" /> {pick('Retry translation', '重试翻译')}
         </Button>
       )}
     </div>
   )
 }
+

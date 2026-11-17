@@ -1,10 +1,11 @@
 import type { DashboardData, Procedure } from './domain'
 
-/**
- * Display-only translation of live Softr data. Softr keeps English as the single source of truth;
- * Chinese text is fetched from the `translate` function and cached in this browser.
- */
-const STORAGE_KEY = 'stayops-translations-zh'
+/** Display-only translations of live Softr data, cached separately by target language. */
+type TargetLanguage = 'zh' | 'en'
+const STORAGE_KEY: Record<TargetLanguage, string> = {
+  zh: 'stayops-translations-zh',
+  en: 'stayops-translations-en',
+}
 const MAX_TEXT = 4000
 const REQUEST_ITEMS = 40
 const REQUEST_CHARS = 6000
@@ -12,27 +13,28 @@ const CONCURRENCY = 4
 
 export type TranslationMap = Record<string, string>
 
-let memory: TranslationMap | null = null
+const memory: Record<TargetLanguage, TranslationMap | null> = { zh: null, en: null }
 
-function loadCache(): TranslationMap {
-  if (memory) return memory
-  memory = {}
+function loadCache(target: TargetLanguage): TranslationMap {
+  if (memory[target]) return memory[target]
+  memory[target] = {}
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (saved) memory = JSON.parse(saved) as TranslationMap
+    const saved = window.localStorage.getItem(STORAGE_KEY[target])
+    if (saved) memory[target] = JSON.parse(saved) as TranslationMap
   } catch { /* ignore a corrupt or unavailable cache */ }
-  return memory
+  return memory[target]
 }
 
-function saveCache(map: TranslationMap) {
+function saveCache(target: TargetLanguage, map: TranslationMap) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+    window.localStorage.setItem(STORAGE_KEY[target], JSON.stringify(map))
   } catch { /* storage full or disabled: keep the in-memory copy only */ }
 }
 
-/** Only text with Latin words needs translating; IDs and numbers are left alone. */
-export function needsTranslation(text: string) {
-  return !!text && text.length <= MAX_TEXT && /[A-Za-z]{2,}/.test(text) && !/^[A-Z0-9][A-Z0-9_\-./]*$/.test(text.trim())
+/** Translate Latin text into Chinese and Han text into English; leave IDs and numbers alone. */
+export function needsTranslation(text: string, target: TargetLanguage = 'zh') {
+  if (!text || text.length > MAX_TEXT || /^[A-Z0-9][A-Z0-9_\-./]*$/.test(text.trim())) return false
+  return target === 'zh' ? /[A-Za-z]{2,}/.test(text) : /\p{Script=Han}/u.test(text)
 }
 
 function chunk(texts: string[]) {
@@ -52,53 +54,52 @@ function chunk(texts: string[]) {
   return groups
 }
 
-async function requestBatch(texts: string[]): Promise<TranslationMap> {
+async function requestBatch(texts: string[], target: TargetLanguage): Promise<TranslationMap> {
   const response = await fetch('/.netlify/functions/translate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texts, target: 'zh' }),
+    body: JSON.stringify({ texts, target }),
   })
   const body = (await response.json().catch(() => null)) as { data?: { translations?: TranslationMap }; error?: string } | null
   if (!response.ok) throw new Error(body?.error || 'Translation failed.')
   return body?.data?.translations || {}
 }
 
-/** Returns a map with a Chinese version for every text, using the cache wherever possible. */
-export async function translateToChinese(texts: string[]): Promise<TranslationMap> {
-  const cache = loadCache()
-  const missing = [...new Set(texts.filter(needsTranslation))].filter((text) => !(text in cache))
+/** Returns cached translations for the selected display language. */
+export async function translateForDisplay(texts: string[], target: TargetLanguage): Promise<TranslationMap> {
+  const cache = loadCache(target)
+  const missing = [...new Set(texts.filter((text) => needsTranslation(text, target)))].filter((text) => !(text in cache))
   const groups = chunk(missing)
   let failure: unknown = null
   for (let i = 0; i < groups.length; i += CONCURRENCY) {
-    const results = await Promise.allSettled(groups.slice(i, i + CONCURRENCY).map(requestBatch))
+    const results = await Promise.allSettled(groups.slice(i, i + CONCURRENCY).map((group) => requestBatch(group, target)))
     for (const result of results) {
       if (result.status === 'fulfilled') Object.assign(cache, result.value)
       else failure = result.reason
     }
   }
-  if (missing.length) saveCache(cache)
+  if (missing.length) saveCache(target, cache)
   if (failure) throw failure instanceof Error ? failure : new Error('Translation failed.')
   return { ...cache }
 }
 
-export function cachedTranslations(): TranslationMap {
-  return typeof window === 'undefined' ? {} : { ...loadCache() }
+export function cachedTranslations(target: TargetLanguage): TranslationMap {
+  return typeof window === 'undefined' ? {} : { ...loadCache(target) }
 }
 
 function procedureTexts(item: Procedure) {
   return [item.title, item.approval_rule, ...item.instructions]
 }
 
-/** Every free-text Softr field that a Chinese reader should see translated. */
-export function dashboardTexts(data: DashboardData) {
+/** Free-text Softr fields that may need display translation. */
+export function dashboardTexts(data: DashboardData, target: TargetLanguage = 'zh') {
   return [
     ...data.properties.flatMap((item) => [item.name, item.location, item.city, item.province]),
     ...data.users.map((item) => item.role),
     ...data.procedures.flatMap(procedureTexts),
     ...data.tasks.flatMap((item) => [item.title, item.description, item.ai_summary, item.ai_recommendation, item.draft_response, item.assigned_to]),
     ...data.activityLogs.map((item) => item.action),
-    ...data.customers.map((item) => item.nationality),
-  ].filter(needsTranslation)
+  ].filter((text) => needsTranslation(text, target))
 }
 
 export function translateProcedure(item: Procedure, t: (text: string) => string): Procedure {
@@ -122,6 +123,7 @@ export function translateDashboard(data: DashboardData, t: (text: string) => str
       assigned_to: t(item.assigned_to),
     })),
     activityLogs: data.activityLogs.map((item) => ({ ...item, action: t(item.action) })),
-    customers: data.customers.map((item) => ({ ...item, nationality: t(item.nationality) })),
+    customers: data.customers,
   }
 }
+

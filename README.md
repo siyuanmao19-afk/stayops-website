@@ -58,7 +58,7 @@ names without changing the table schema:
 - **Tasks**: `title, description, property_id, task_type, ai_summary, procedure_id, ai_recommendation, draft_response, assigned_to, status`
 - **Procedures**: `procedure_id, property_id, title, instructions, approval_rule`
 - **Activity Logs**: `log_id, task_id, actor_id, action, created_at`
-- **Properties**: `property_id, property_name, location, status`
+- **Properties**: `property_id, property_name, location, status`; an optional `image_url` (or a Softr photo/cover attachment field) supplies a property-specific photo. Records without a photo show a clearly labeled placeholder.
 - **Users**: `user_id, name, email, role, property_id`
 - **Customers**: `ID number, Phone number, Room number, Property number, Nationality, Month dates staying, Duration of stay`
 
@@ -81,4 +81,5 @@ Reads will use `fieldNames=true`; creates and updates will use Softr field IDs.
 7. Hardening and test checklist
 
 Details in [PLAN.md](PLAN.md).
+
 

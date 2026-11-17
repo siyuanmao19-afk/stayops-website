@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
-import { ClipboardList, LayoutGrid, PenLine, Rows3, Search, User } from 'lucide-react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Fragment, useMemo, useState } from 'react'
+import { ClipboardList, LayoutGrid, MapPin, PenLine, Rows3, Search, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,20 +25,30 @@ import { TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from '@/lib/dom
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/lib/language'
 
+type TaskSearch = { status?: TaskStatus; priority?: 'urgent' | 'routine' }
+
 export const Route = createFileRoute('/app/tasks')({
+  validateSearch: (search: Record<string, unknown>): TaskSearch => ({
+    status: typeof search.status === 'string' && TASK_STATUSES.includes(search.status as TaskStatus)
+      ? search.status as TaskStatus
+      : undefined,
+    priority: search.priority === 'urgent' || search.priority === 'routine' ? search.priority : undefined,
+  }),
   component: TasksPage,
 })
 
 const ALL = 'all'
+const isActiveUrgent = (task: Task) => task.urgent && task.status !== 'Resolved'
 
 function TasksPage() {
   const { data, raw, loading, error, refresh, updateTaskLocal, propertyById } = useStayOpsData()
   const { pick, tv } = useLanguage()
+  const navigate = useNavigate({ from: '/app/tasks' })
+  const { status: statusFilter, priority: priorityFilter } = Route.useSearch()
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [query, setQuery] = useState('')
   const [property, setProperty] = useState(ALL)
   const [type, setType] = useState(ALL)
-  const [status, setStatus] = useState(ALL)
   const [editing, setEditing] = useState<Task | null>(null)
 
   const filtered = useMemo(() => {
@@ -47,10 +57,15 @@ function TasksPage() {
       (t) =>
         (property === ALL || t.property_id === property) &&
         (type === ALL || t.task_type === type) &&
-        (status === ALL || t.status === status) &&
+        (!statusFilter || t.status === statusFilter) &&
+        (!priorityFilter || (priorityFilter === 'urgent' ? isActiveUrgent(t) : !isActiveUrgent(t))) &&
         (!q || `${t.title} ${t.description} ${t.id} ${t.assigned_to}`.toLowerCase().includes(q)),
-    )
-  }, [data, query, property, type, status])
+    ).sort((a, b) => Number(isActiveUrgent(b)) - Number(isActiveUrgent(a)) || b.created_at.localeCompare(a.created_at))
+  }, [data, query, property, type, statusFilter, priorityFilter])
+  const groups = [
+    { key: 'urgent', title: pick('Urgent attention', '紧急关注'), tasks: filtered.filter(isActiveUrgent) },
+    { key: 'routine', title: pick('Other tasks', '其他任务'), tasks: filtered.filter((task) => !isActiveUrgent(task)) },
+  ].filter((group) => group.tasks.length > 0)
 
   if (loading && !data) return <DataState loading />
   if (error || !data) return <DataState error={error || pick('No data returned.', '未返回数据。')} retry={refresh} />
@@ -73,7 +88,7 @@ function TasksPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 rounded-3xl border border-border bg-paper p-4 shadow-soft sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="mb-6 grid gap-3 rounded-3xl border border-border bg-paper p-4 shadow-soft sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
         <div className="relative">
           <Label htmlFor="task-search" className="sr-only">{pick('Search tasks', '搜索任务')}</Label>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone" aria-hidden="true" />
@@ -89,9 +104,17 @@ function TasksPage() {
           options={data.properties.map((p) => ({ value: p.property_id, label: p.name }))} />
         <Filter label={pick('Task type', '任务类型')} allLabel={pick('All task types', '全部任务类型')} value={type} onChange={setType}
           options={TASK_TYPES.map((t) => ({ value: t, label: tv(t) }))} />
-        <Filter label={pick('Status', '状态')} allLabel={pick('All statuses', '全部状态')} value={status} onChange={setStatus}
+        <Filter label={pick('Status', '状态')} allLabel={pick('All statuses', '全部状态')} value={statusFilter ?? ALL}
+          onChange={(value) => void navigate({ search: (previous) => ({ ...previous, status: value === ALL ? undefined : value as TaskStatus }), replace: true })}
           options={TASK_STATUSES.map((s) => ({ value: s, label: tv(s) }))} />
+        <Filter label={pick('Priority', '优先级')} allLabel={pick('All priorities', '全部优先级')} value={priorityFilter ?? ALL}
+          onChange={(value) => void navigate({ search: (previous) => ({ ...previous, priority: value === ALL ? undefined : value as TaskSearch['priority'] }), replace: true })}
+          options={[{ value: 'urgent', label: pick('Urgent attention', '紧急关注') }, { value: 'routine', label: pick('Other tasks', '其他任务') }]} />
       </div>
+
+      <p className="mb-4 text-sm text-stone" role="status">
+        {pick(`${filtered.length} tasks shown.`, `显示 ${filtered.length} 项任务。`)}
+      </p>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -100,19 +123,29 @@ function TasksPage() {
           body="Try clearing a filter or searching for a different word."
         />
       ) : view === 'cards' ? (
-        <div className="grid gap-5 md:grid-cols-2">
-          {filtered.map((t) => (
-            <article key={t.id} className="flex flex-col rounded-3xl border border-border bg-paper p-6 shadow-soft">
+        <div className="space-y-8">
+          {groups.map((group) => (
+            <section key={group.key} aria-label={group.title}>
+              <div className="mb-3 flex items-center gap-3">
+                <h2 className={cn('text-lg font-semibold', group.key === 'urgent' ? 'text-terracotta' : 'text-walnut')}>{group.title}</h2>
+                <span className="rounded-full bg-ivory px-2.5 py-0.5 text-xs font-semibold text-stone">{group.tasks.length}</span>
+              </div>
+              <div className="grid gap-5 md:grid-cols-2">
+          {group.tasks.map((t) => (
+            <article key={t.record_id} className={cn('flex flex-col rounded-3xl border bg-paper p-6 shadow-soft', isActiveUrgent(t) ? 'border-terracotta/40' : 'border-border')}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-stone">{t.id}</span>
                 <TypeBadge type={t.task_type} />
                 <StatusBadge status={t.status} />
-                {t.urgent && (
+                {isActiveUrgent(t) && (
                   <span className="rounded-full bg-terracotta px-2 py-0.5 text-xs font-medium text-paper">{pick('Urgent', '紧急')}</span>
                 )}
               </div>
-              <h2 className="mt-3 text-2xl font-semibold leading-tight text-walnut">{t.title}</h2>
-              <p className="mt-1 text-sm text-stone">{propertyById(t.property_id)?.name}</p>
+              <h3 className="mt-3 text-2xl font-semibold leading-tight text-walnut">{t.title}</h3>
+              <p className="mt-2 inline-flex items-center gap-2 text-lg font-semibold text-coffee">
+                <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                {propertyById(t.property_id)?.name || t.property_id}
+              </p>
               <p className="mt-3 text-sm text-charcoal">{t.description}</p>
 
               <dl className="mt-4 space-y-3 rounded-2xl bg-ivory/70 p-4 text-sm">
@@ -138,6 +171,9 @@ function TasksPage() {
               </div>
             </article>
           ))}
+              </div>
+            </section>
+          ))}
         </div>
       ) : (
         <div className="overflow-hidden rounded-3xl border border-border bg-paper shadow-soft">
@@ -154,11 +190,19 @@ function TasksPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((t) => (
-                <TableRow key={t.id}>
+              {groups.map((group) => (
+                <Fragment key={group.key}>
+                  <TableRow className={group.key === 'urgent' ? 'bg-terracotta/10' : 'bg-ivory/70'}>
+                    <TableCell colSpan={7} className={cn('font-semibold', group.key === 'urgent' ? 'text-terracotta' : 'text-walnut')}>
+                      {group.title} · {group.tasks.length}
+                    </TableCell>
+                  </TableRow>
+              {group.tasks.map((t) => (
+                <TableRow key={t.record_id}>
                   <TableCell className="min-w-56 whitespace-normal">
                     <p className="font-medium text-walnut">{t.title}</p>
-                    <p className="text-xs text-stone">{t.id} · {propertyById(t.property_id)?.name}</p>
+                    <p className="mt-1 text-base font-semibold text-coffee">{propertyById(t.property_id)?.name || t.property_id}</p>
+                    <p className="text-xs text-stone">{t.id}</p>
                   </TableCell>
                   <TableCell><TypeBadge type={t.task_type} /></TableCell>
                   <TableCell className="font-mono text-xs">{t.procedure_id || '—'}</TableCell>
@@ -171,6 +215,8 @@ function TasksPage() {
                     </Button>
                   </TableCell>
                 </TableRow>
+              ))}
+                </Fragment>
               ))}
             </TableBody>
           </Table>
@@ -293,5 +339,6 @@ function ViewButton({ active, onClick, label, children }: { active: boolean; onC
     </button>
   )
 }
+
 
 

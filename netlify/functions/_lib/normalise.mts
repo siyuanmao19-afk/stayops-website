@@ -38,6 +38,39 @@ function splitInstructions(value: string) {
     .filter(Boolean)
 }
 
+/** Softr attachment fields can be URLs, attachment objects, or arrays of attachments. */
+function imageUrl(value: unknown): string {
+  if (Array.isArray(value)) return value.map(imageUrl).find(Boolean) || ''
+  if (value && typeof value === 'object') {
+    const item = value as Record<string, unknown>
+    return imageUrl(item.url ?? item.src ?? item.downloadUrl ?? item.imageUrl ?? item.thumbnail ?? item.value)
+  }
+  if (typeof value !== 'string') return ''
+  const candidate = value.trim()
+  if (/^\/(?!\/)/.test(candidate)) return candidate
+  try {
+    const url = new URL(candidate)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : ''
+  } catch {
+    return ''
+  }
+}
+
+function propertyImage(fields: Record<string, unknown>): string {
+  const preferred = ['image_url', 'photo_url', 'cover_image', 'property_image', 'property_photo', 'image', 'photo', 'photos', 'images']
+  for (const key of preferred) {
+    const url = imageUrl(fields[key])
+    if (url) return url
+  }
+  for (const [key, value] of Object.entries(fields)) {
+    if (/image|photo|picture|cover/i.test(key)) {
+      const url = imageUrl(value)
+      if (url) return url
+    }
+  }
+  return ''
+}
+
 export function property(row: SoftrRecord) {
   const location = text(row.fields.location)
   const [city = 'Location pending', province = ''] = location.split(',').map((part) => part.trim())
@@ -49,6 +82,7 @@ export function property(row: SoftrRecord) {
     city,
     province,
     location,
+    image_url: propertyImage(row.fields),
     status: rawStatus === 'Inactive' ? 'Paused' : rawStatus === 'Active' ? 'Operating' : 'Limited',
   }
 }
@@ -134,5 +168,6 @@ export function customer(row: SoftrRecord) {
     duration_days: Number(row.fields['Duration of stay'] || 0),
   }
 }
+
 
 
