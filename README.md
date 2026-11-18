@@ -58,11 +58,26 @@ names without changing the table schema:
 - **Tasks**: `title, description, property_id, task_type, ai_summary, procedure_id, ai_recommendation, draft_response, assigned_to, status`
 - **Procedures**: `procedure_id, property_id, title, instructions, approval_rule`
 - **Activity Logs**: `log_id, task_id, actor_id, action, created_at`
-- **Properties**: `property_id, property_name, location, status`; an optional `image_url` (or a Softr photo/cover attachment field) supplies a property-specific photo. Records without a photo show a clearly labeled placeholder.
+- **Properties**: `property_id, property_name, location, status`; an optional `image_url` (or a Softr photo/cover attachment field) supplies a property-specific photo. For the eight known locations, city photography appears when no property photo exists; other locations show a missing-photo placeholder.
 - **Users**: `user_id, name, email, role, property_id`
 - **Customers**: `ID number, Phone number, Room number, Property number, Nationality, Month dates staying, Duration of stay`
 
 Reads will use `fieldNames=true`; creates and updates will use Softr field IDs.
+
+## Property page photography
+
+The city photographs in `public/property-images/` are local WebP copies of the following [Unsplash License](https://unsplash.com/license) images. They show the surrounding city or scenery; they are not photographs of the individual homestays. A photo URL in Softr takes precedence over these images.
+
+| Location | Photographer | Source |
+| --- | --- | --- |
+| Hangzhou | Kounotori | [West Lake pavilion](https://unsplash.com/photos/traditional-pavilion-on-a-bridge-over-water-MsEHSLU2Kjg) |
+| Wuzhen | Fiona Xu | [Wuzhen canal](https://unsplash.com/photos/a-small-boat-traveling-down-a-river-next-to-houses-g-Pvdxcuhq4) |
+| Suzhou | Terence Zheng | [Suzhou garden](https://unsplash.com/photos/a-beautiful-chinese-garden-with-traditional-architecture-Of8w7PJk1yc) |
+| Nanjing | Cheng Shi Song | [Tree-lined path](https://unsplash.com/photos/a-walkway-lined-with-trees-and-benches-in-a-park-pnD879oAJRE) |
+| Dali | Wenhao Ruan | [Erhai lakeside town](https://unsplash.com/photos/a-town-on-a-lake-with-mountains-in-the-background-7TQeEZDG_Dk) |
+| Lijiang | Noppon Meenuch | [Old Town rooftops](https://unsplash.com/photos/a-row-of-buildings-with-a-mountain-in-the-background-pd-eJW80j8U) |
+| Xiamen | Bangyu Wang | [Gulangyu waterfront](https://unsplash.com/photos/white-and-blue-boat-on-water-near-city-buildings-during-daytime-xRi_L0sfaTQ) |
+| Quanzhou | Yifei Wong | [Old brick doorway](https://unsplash.com/photos/a-door-with-chinese-writing-on-it-in-front-of-a-building-YWIgU5o23FY) |
 
 ## Common Softr API errors
 
