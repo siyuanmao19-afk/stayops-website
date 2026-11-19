@@ -3,3 +3,6 @@
 
 /sw.js
   Content-Type: application/javascript
+
+/stayops-worker.js
+  Content-Type: application/javascript

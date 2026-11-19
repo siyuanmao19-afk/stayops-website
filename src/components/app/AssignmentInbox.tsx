@@ -64,7 +64,7 @@ export function AssignmentInbox() {
             const permission = await Notification.requestPermission()
             if (permission !== 'granted') throw new Error(pick('Notification permission was not granted.', '未获得通知权限。'))
             const { public_key } = await getPushPublicKey()
-            const registration = await navigator.serviceWorker.register('/sw.js')
+            const registration = await navigator.serviceWorker.register('/stayops-worker.js')
             const padding = '='.repeat((4 - public_key.length % 4) % 4)
             const bytes = atob((public_key + padding).replace(/-/g, '+').replace(/_/g, '/'))
             const applicationServerKey = Uint8Array.from(bytes, (character) => character.charCodeAt(0))
