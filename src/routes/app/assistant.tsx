@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
@@ -103,8 +103,8 @@ function AssistantPage() {
         setAssigneeEmail(r.recommended_staff_email)
       }
       setSavedDraft(null)
+      await refresh()
       setPhase('success')
-      void refresh()
     } catch (reason) {
       const savedId = reason instanceof ApiError ? reason.taskRecordId : null
       setSavedTaskId(savedId)
@@ -307,6 +307,9 @@ function AssistantPage() {
               <p className="text-sm text-stone">
                 {pick('Task', '任务')} <span className="font-mono text-walnut">{result.task_id}</span> {pick('created', '已创建')}
               </p>
+              <Link to="/app/tasks" search={{ task: result.task_record_id }} className="text-sm font-medium text-coffee underline underline-offset-4 hover:text-walnut">
+                {pick('View this task in Tasks', '在任务中查看此任务')}
+              </Link>
               {reviewed && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sage/15 px-3 py-1 text-xs font-medium text-sage">
                   <CheckCircle2 className="size-3.5" aria-hidden="true" /> {pick('Reviewed', '已审核')}

@@ -14,7 +14,7 @@ function OverviewPage() {
   const { user } = useAuth()
   const manager = user?.email?.toLowerCase() === 'siyuanmao19@gmail.com'
   const { data, loading, error, refresh, propertyById } = useStayOpsData()
-  const { pick } = useLanguage()
+  const { pick, tv } = useLanguage()
   if (loading && !data) return <DataState loading />
   if (error || !data) return <DataState error={error || pick('No data returned.', '未返回数据。')} retry={refresh} />
   // Match the Tasks status filter exactly; the attention list below includes all unresolved statuses.
@@ -39,7 +39,7 @@ function OverviewPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <section aria-labelledby="needs" className="rounded-3xl border border-border bg-paper p-6 shadow-soft">
           <div className="flex items-center justify-between"><h2 id="needs" className="text-2xl font-semibold text-walnut">{pick('Needs attention', '需要关注')}</h2><Link to="/app/tasks" className="inline-flex items-center gap-1 text-sm font-medium text-coffee hover:text-walnut">{pick('All tasks', '全部任务')} <ArrowRight className="size-4" aria-hidden="true" /></Link></div>
-          {needsAttention.length ? <ul className="mt-4 divide-y divide-border">{needsAttention.slice(0, 8).map((task) => <li key={task.record_id} className="flex flex-wrap items-center justify-between gap-3 py-3.5"><div className="min-w-0"><p className="flex items-center gap-2 font-medium text-walnut">{task.urgent && <AlertTriangle className="size-4 text-terracotta" aria-label={pick('Urgent', '紧急')} />}{task.title}</p><p className="text-xs text-stone">{propertyById(task.property_id)?.name || task.property_id} · {task.assigned_to}</p></div><div className="flex gap-2"><TypeBadge type={task.task_type} /><StatusBadge status={task.status} /></div></li>)}</ul> : <p className="mt-6 text-sm text-stone">{pick('Everything is resolved — the operation is calm.', '所有任务均已解决，运营一切平稳。')}</p>}
+          {needsAttention.length ? <ul className="mt-4 divide-y divide-border">{needsAttention.slice(0, 8).map((task) => <li key={task.record_id} className="flex flex-wrap items-center justify-between gap-3 py-3.5"><div className="min-w-0"><p className="flex items-center gap-2 font-medium text-walnut">{task.urgent && <AlertTriangle className="size-4 text-terracotta" aria-label={pick('Urgent', '紧急')} />}{task.title}</p><p className="text-xs text-stone">{propertyById(task.property_id)?.name || task.property_id} · {tv(task.assigned_to)}</p></div><div className="flex gap-2"><TypeBadge type={task.task_type} /><StatusBadge status={task.status} /></div></li>)}</ul> : <p className="mt-6 text-sm text-stone">{pick('Everything is resolved — the operation is calm.', '所有任务均已解决，运营一切平稳。')}</p>}
         </section>
         <div className="space-y-6">
           {latestTask && <section aria-labelledby="latest" className="rounded-3xl bg-walnut p-6 text-sand shadow-lift"><p className="eyebrow flex items-center gap-2 text-champagne"><Sparkles className="size-3.5" aria-hidden="true" /> {pick('Latest AI analysis', '最新 AI 分析')}</p><h2 id="latest" className="mt-2 text-2xl font-semibold text-paper">{latestTask.title}</h2><p className="mt-2 text-sm text-sand/85 [&_strong]:text-paper"><RichText text={latestTask.ai_summary || latestTask.description} /></p><Link to="/app/assistant" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-champagne hover:text-sand">{pick('Ask about a new request', '分析新的客人请求')} <ArrowRight className="size-4" aria-hidden="true" /></Link></section>}

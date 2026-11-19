@@ -177,7 +177,7 @@ function TasksPage() {
 
               <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                 <span className="inline-flex items-center gap-1.5 text-sm text-stone">
-                  <User className="size-4" aria-hidden="true" /> {t.assigned_to}
+                  <User className="size-4" aria-hidden="true" /> {tv(t.assigned_to)}
                 </span>
                 <Button size="sm" variant="outline" className="rounded-full" onClick={() => setEditing(t)}>
                   <PenLine aria-hidden="true" /> {pick('Edit draft & status', '编辑草稿和状态')}
@@ -221,7 +221,7 @@ function TasksPage() {
                   <TableCell><TypeBadge type={t.task_type} /></TableCell>
                   <TableCell className="font-mono text-xs">{t.procedure_id || '—'}</TableCell>
                   <TableCell className="whitespace-normal text-sm"><RichText text={t.ai_summary} /></TableCell>
-                  <TableCell className="text-sm">{t.assigned_to}</TableCell>
+                  <TableCell className="text-sm">{tv(t.assigned_to)}</TableCell>
                   <TableCell><StatusBadge status={t.status} /><span className="ml-2 text-xs text-coffee">{tv(t.priority)}</span></TableCell>
                   <TableCell>
                     <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setEditing(t)} aria-label={pick(`Edit ${t.title}`, `编辑 ${t.title}`)}>

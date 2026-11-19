@@ -97,7 +97,7 @@ export function dashboardTexts(data: DashboardData, target: TargetLanguage = 'zh
     ...data.properties.flatMap((item) => [item.name, item.location, item.city, item.province]),
     ...data.users.map((item) => item.role),
     ...data.procedures.flatMap(procedureTexts),
-    ...data.tasks.flatMap((item) => [item.title, item.description, item.ai_summary, item.ai_recommendation, item.priority_reason, item.assignment_reason, item.draft_response, item.assigned_to]),
+    ...data.tasks.flatMap((item) => [item.title, item.description, item.ai_summary, item.ai_recommendation, item.priority_reason, item.assignment_reason, item.draft_response, item.assigned_to === 'Unassigned' ? '' : item.assigned_to]),
     ...data.activityLogs.map((item) => item.action),
   ].filter((text) => needsTranslation(text, target))
 }
@@ -122,7 +122,7 @@ export function translateDashboard(data: DashboardData, t: (text: string) => str
       priority_reason: t(item.priority_reason),
       assignment_reason: t(item.assignment_reason),
       draft_response: t(item.draft_response),
-      assigned_to: t(item.assigned_to),
+      assigned_to: item.assigned_to === 'Unassigned' ? 'Unassigned' : t(item.assigned_to),
     })),
     activityLogs: data.activityLogs.map((item) => ({ ...item, action: t(item.action) })),
     customers: data.customers,
