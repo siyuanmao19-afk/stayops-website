@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ApprovalTag, PageHeader } from '@/components/app/PageHeader'
 import { DataState } from '@/components/app/DataState'
 import { RichText, stripBold } from '@/components/brand/RichText'
-import { askAssistant, assignTask, updateTask } from '@/lib/api'
+import { ApiError, askAssistant, assignTask, updateTask } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useStayOpsData } from '@/lib/data-context'
 import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult, type AssistantText } from '@/lib/domain'
@@ -50,6 +50,8 @@ function AssistantPage() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<AssistantResult | null>(null)
   const [fieldError, setFieldError] = useState<string | null>(null)
+  const [assistantError, setAssistantError] = useState<string | null>(null)
+  const [savedTaskId, setSavedTaskId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   /** Staff-edited reply that was saved (null = the AI draft is unchanged). */
   const [savedDraft, setSavedDraft] = useState<string | null>(null)
@@ -87,6 +89,8 @@ function AssistantPage() {
     if (q.length < 8) return setFieldError(pick('Describe the guest request in a little more detail.', '请更详细地描述客人的需求。'))
     if (q.length > MAX_QUESTION) return setFieldError(pick(`Keep the request under ${MAX_QUESTION} characters.`, `请求内容请控制在 ${MAX_QUESTION} 字以内。`))
     setFieldError(null)
+    setAssistantError(null)
+    setSavedTaskId(null)
     setPhase('processing')
     setResult(null)
     setEditing(false)
@@ -100,9 +104,16 @@ function AssistantPage() {
       }
       setSavedDraft(null)
       setPhase('success')
-      await refresh()
-    } catch {
+      void refresh()
+    } catch (reason) {
+      const savedId = reason instanceof ApiError ? reason.taskRecordId : null
+      setSavedTaskId(savedId)
+      setAssistantError(reason instanceof ApiError && reason.status === 502
+        ? pick('The AI service returned an incomplete response. The saved task is ready for manual review.', 'AI 服务返回的分析不完整。已保存的任务可以手动处理。')
+        : pick('The AI analysis failed. Check the task list before submitting the same request again.', 'AI 分析失败。重新提交同一请求前，请先检查任务列表。'))
+      if (manager && savedId) setAssignmentTaskId(savedId)
       setPhase('error')
+      void refresh()
     }
   }
 
@@ -268,9 +279,8 @@ function AssistantPage() {
         {phase === 'error' && (
           <div role="alert" className="rounded-3xl border border-terracotta/30 bg-paper p-6">
             <p className="font-semibold text-terracotta">{pick('The assistant couldn’t finish this request.', 'AI 助手未能完成这次请求。')}</p>
-            <p className="mt-1 text-sm text-stone">
-              {pick('Your task was kept. Try again in a moment, or handle it manually from Tasks.', '任务已经保留，请稍后重试，或前往任务页面手动处理。')}
-            </p>
+            <p className="mt-1 text-sm text-stone">{assistantError}</p>
+            {savedTaskId && <p className="mt-2 text-xs text-stone">{pick('Saved task', '已保存任务')}: <span className="font-mono">{savedTaskId}</span></p>}
           </div>
         )}
 

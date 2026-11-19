@@ -17,6 +17,16 @@ function cleanJson(content: string) {
   return content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
 }
 
+export function parseAssistantJson(content: string): Record<string, unknown> {
+  const cleaned = cleanJson(content)
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start < 0 || end <= start) throw new SyntaxError('AI response is not a complete JSON object.')
+  const parsed: unknown = JSON.parse(cleaned.slice(start, end + 1))
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new SyntaxError('AI response is not a JSON object.')
+  return parsed as Record<string, unknown>
+}
+
 function bounded(value: unknown, max: number, fallback = '') {
   const result = String(value ?? fallback).trim()
   return result.slice(0, max)
@@ -53,6 +63,7 @@ export default async (request: Request) => {
   if (unauthorized) return unauthorized
   let taskRecordId = ''
   let displayTaskId: string
+  let stage = 'input'
   try {
     const body = await request.json() as Record<string, unknown>
     const propertyId = String(body.property_id || '').trim()
@@ -86,6 +97,7 @@ export default async (request: Request) => {
     })
     taskRecordId = initial.id
 
+    stage = 'employees'
     const registered = viewer!.manager ? await registeredEmployeeEmails() : null
     const staff = registered
       ? (await listRecords(tableId('users'))).map(user).filter((item) => registered.has(item.email.toLowerCase()))
@@ -101,7 +113,8 @@ export default async (request: Request) => {
 
     const base = aiEnv('DEEPSEEK_BASE_URL').replace(/\/$/, '')
     const key = aiEnv('DEEPSEEK_KEY')
-    const aiResponse = await fetch(`${base}/chat/completions`, {
+    stage = 'AI request'
+    const aiRequest = new Request(`${base}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -110,7 +123,7 @@ export default async (request: Request) => {
       },
       body: JSON.stringify({
         model: aiEnv('DEEPSEEK_MODEL'),
-        max_tokens: language === 'zh' ? 2200 : 900,
+        max_tokens: language === 'zh' ? 4000 : 2000,
         temperature: 0.2,
         messages: [
           {
@@ -118,23 +131,30 @@ export default async (request: Request) => {
             content: `You are the StayOps operations assistant. Return one valid JSON object only with keys: title, task_type, task_type_phrase, summary, procedure_id, generated_procedure_title, generated_procedure_steps, generated_approval_rule, staff_action, guest_reply. task_type must remain one of these exact internal English values: Guest enquiry, Guest issue, Maintenance, Housekeeping, Review response. task_type_phrase is a short, specific English label summarising this request in 2-5 words. Write summary as one very short English sentence containing only the core request, with no background or advice, at most 16 words. Use a supplied procedure_id only when that database procedure clearly addresses this request; otherwise return N/A rather than forcing an unrelated match. When procedure_id is N/A, create a concise English draft procedure in generated_procedure_title, generated_procedure_steps (3-5 actionable string items) and generated_approval_rule. The generated procedure must stay directly on topic, use safe reversible actions, require staff review, and require owner approval for costs, compensation, room moves or policy exceptions. Never promise refunds, compensation, prices, room moves or completion times without approval. staff_action should be 4-6 sentences and guest_reply 3-5 polite sentences. Use **bold** around 1-3 important phrases in explanatory fields except summary. Always write the top-level text in English because the database is kept in English. Also include guest_request_en: a faithful English translation of the guest request (copy it unchanged if it is already English).${language === 'zh' ? ' The staff member reads Simplified Chinese, so also include key zh with title, task_type_phrase, summary, staff_action and guest_reply translated faithfully into natural Simplified Chinese. task_type_phrase must be 2-6 Chinese characters and summary at most 30 Chinese characters.' : ''}`,
           },
           {
-            role: 'user',
-            content: JSON.stringify({ property: selectedProperty, guest_request: question, allowed_procedures: procedureContext, available_staff: staff.map(({ name, email, role, property_id }) => ({ name, email, role, property_id })) }),
-          },
-          {
             role: 'system',
             content: 'Also return priority (Critical, High, Normal, or Low), priority_reason, recommended_staff_email, and assignment_reason. Recommend only an email from available_staff, preferring the same property and a relevant role. Return an empty email if no one is suitable. This is advice for a manager, not an automatic assignment.',
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({ property: selectedProperty, guest_request: question, allowed_procedures: procedureContext, available_staff: staff.map(({ name, email, role, property_id }) => ({ name, email, role, property_id })) }),
           },
         ],
       }),
     })
-    if (!aiResponse.ok) {
-      throw Object.assign(new Error('DeepSeek could not analyse this request. The task was kept as Open.'), { status: 502 })
+    let result: Record<string, unknown> | null = null
+    for (let attempt = 0; attempt < 2 && !result; attempt += 1) {
+      const aiResponse = await fetch(aiRequest.clone())
+      if (!aiResponse.ok) {
+        if (attempt === 0 && (aiResponse.status === 429 || aiResponse.status >= 500)) continue
+        throw Object.assign(new Error('DeepSeek could not analyse this request. The task was kept as Open.'), { status: 502, providerStatus: aiResponse.status })
+      }
+      const aiPayload = await aiResponse.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }> } | null
+      const content = aiPayload?.choices?.[0]?.message?.content
+      if (content) {
+        try { result = parseAssistantJson(content) } catch { result = null }
+      }
     }
-    const aiPayload = await aiResponse.json() as { choices?: Array<{ message?: { content?: string } }> }
-    const content = aiPayload.choices?.[0]?.message?.content
-    if (!content) throw Object.assign(new Error('DeepSeek returned an empty answer. The task was kept as Open.'), { status: 502 })
-    const result = JSON.parse(cleanJson(content)) as Record<string, unknown>
+    if (!result) throw Object.assign(new Error('AI returned an incomplete analysis. The task was kept as Open.'), { status: 502 })
 
     const taskType = TYPES.has(String(result.task_type)) ? String(result.task_type) : 'Guest enquiry'
     const requestedProcedure = String(result.procedure_id || '').trim()
@@ -177,11 +197,12 @@ export default async (request: Request) => {
         }
       : null
 
+    stage = 'save analysis'
     await updateRecord(tableId('tasks'), taskRecordId, {
       [FIELD_IDS.tasks.title]: title,
       ...(englishRequest ? { [FIELD_IDS.tasks.description]: englishRequest } : {}),
       [FIELD_IDS.tasks.task_type]: taskType,
-      [FIELD_IDS.tasks.procedure_id]: matched?.row.id || '',
+      ...(matched ? { [FIELD_IDS.tasks.procedure_id]: matched.row.id } : {}),
       [FIELD_IDS.tasks.ai_summary]: taskTypePhrase,
       [FIELD_IDS.tasks.priority]: priority,
       [FIELD_IDS.tasks.priority_reason]: priorityReason,
@@ -191,6 +212,7 @@ export default async (request: Request) => {
       [FIELD_IDS.tasks.draft_response]: guestReply,
       [FIELD_IDS.tasks.status]: status,
     })
+    stage = 'record analysis'
     await createRecord(tableId('activityLogs'), {
       [FIELD_IDS.activityLogs.log_id]: `AI-${Date.now()}`,
       [FIELD_IDS.activityLogs.task_id]: taskRecordId,
@@ -216,6 +238,13 @@ export default async (request: Request) => {
       handling_record: 'This analysis was saved to **Activity Logs** and linked to the task. Staff edits and the final status are recorded as separate entries, preserving a complete **audit trail**.',
     } })
   } catch (reason) {
+    console.error('StayOps assistant failed', {
+      stage,
+      taskRecordId,
+      error: reason instanceof Error ? reason.name : 'Unknown',
+      status: typeof reason === 'object' && reason && 'status' in reason ? reason.status : 500,
+      providerStatus: typeof reason === 'object' && reason && 'providerStatus' in reason ? reason.providerStatus : undefined,
+    })
     if (taskRecordId) {
       try {
         await createRecord(tableId('activityLogs'), {
@@ -226,7 +255,14 @@ export default async (request: Request) => {
         })
       } catch { /* preserve the original failure */ }
     }
-    return safeError(reason)
+    if (!taskRecordId) return safeError(reason)
+    const status = typeof reason === 'object' && reason && 'status' in reason ? Number(reason.status) : 500
+    return json({
+      error: status === 502 && reason instanceof Error
+        ? reason.message
+        : 'AI analysis failed after the task was created. Open the saved task for manual handling.',
+      task_record_id: taskRecordId,
+    }, Number.isFinite(status) ? status : 500)
   }
 }
 
