@@ -17,6 +17,7 @@ export const FIELD_IDS = {
     task_id: 'bBfQS', property_id: 'XHoL0', assigned_to: '0UjOd', procedure_id: 'YmtKu',
     title: 'lktbb', task_type: 'bCbqd', description: 'EdqQA', draft_response: '6Brfz',
     status: 'hXTGo', ai_summary: 'Gzbs9', ai_recommendation: 'zcwMH',
+    priority: 'KhUcO', priority_reason: 'nRYNm', recommended_staff_email: 'siAws', assignment_reason: 'ChZH6',
   },
   activityLogs: { log_id: '5o1O1', task_id: 'yHpoK', actor_id: 'huyyO', action: 'FJUHr', created_at: 'SUA1U' },
   customers: {

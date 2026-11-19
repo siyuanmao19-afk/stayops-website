@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DataProvider } from '@/lib/data-context'
 import { TranslationNotice } from '@/components/app/DataState'
+import { AssignmentInbox } from '@/components/app/AssignmentInbox'
 import { useLanguage } from '@/lib/language'
 import { LanguageToggle } from '@/components/brand/SiteNav'
 import { useAuth } from '@/lib/auth'
@@ -37,9 +38,11 @@ const ITEMS = [
 
 function NavList() {
   const { language } = useLanguage()
+  const { user } = useAuth()
+  const manager = user?.email?.toLowerCase() === 'siyuanmao19@gmail.com'
   return (
     <ul className="space-y-1">
-      {ITEMS.map(({ to, label, labelZh, icon: Icon, ...rest }) => (
+      {ITEMS.filter(({ to }) => manager || (to !== '/app/properties' && to !== '/app/analytics')).map(({ to, label, labelZh, icon: Icon, ...rest }) => (
         <li key={to}>
           <Link
             to={to}
@@ -64,6 +67,11 @@ function AppLayout() {
       const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
       window.location.replace(`/login?redirect=${redirect}`)
     }
+  }, [loading, user])
+
+  useEffect(() => {
+    if (loading || !user || user.email?.toLowerCase() === 'siyuanmao19@gmail.com') return
+    if (['/app/properties', '/app/analytics'].some((path) => window.location.pathname.startsWith(path))) window.location.replace('/app/tasks')
   }, [loading, user])
 
   if (loading || !user) {
@@ -94,6 +102,7 @@ function AppLayout() {
         <div className="mt-4 space-y-3 px-3">
           <p className="truncate text-xs text-stone" title={user.email}>{user.name || user.email}</p>
           <div className="flex items-center gap-2">
+            <AssignmentInbox />
             <LanguageToggle />
             <Button type="button" variant="ghost" size="sm" onClick={signOut} className="rounded-full text-stone"><LogOut className="size-4" />{pick('Sign out', '退出')}</Button>
           </div>
@@ -104,7 +113,7 @@ function AppLayout() {
         <Link to="/" aria-label={pick('StayOps home', 'StayOps 首页')}>
           <Logo className="h-8" />
         </Link>
-        <Sheet>
+        <div className="flex items-center gap-2"><AssignmentInbox /><Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label={pick('Open workspace menu', '打开工作台菜单')}>
               <Menu />
@@ -116,7 +125,7 @@ function AppLayout() {
             <div className="mb-5 flex items-center justify-between gap-2"><LanguageToggle /><Button type="button" variant="ghost" size="sm" onClick={signOut}><LogOut className="size-4" />{pick('Sign out', '退出')}</Button></div>
             <NavList />
           </SheetContent>
-        </Sheet>
+        </Sheet></div>
       </header>
 
       <main className="min-w-0 px-4 py-8 sm:px-8 lg:py-10">

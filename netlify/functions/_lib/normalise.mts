@@ -116,6 +116,7 @@ export function procedure(row: SoftrRecord) {
 export function task(row: SoftrRecord) {
   const type = select(row.fields.task_type) || 'Guest enquiry'
   const status = select(row.fields.status) || 'Open'
+  const priority = text(row.fields.priority)
   return {
     record_id: row.id,
     id: text(row.fields.task_id) || row.id,
@@ -124,12 +125,18 @@ export function task(row: SoftrRecord) {
     property_id: text(row.fields.property_id),
     task_type: type,
     ai_summary: text(row.fields.ai_summary),
+    priority: ['Critical', 'High', 'Normal', 'Low'].includes(priority) ? priority : 'Normal',
+    priority_reason: text(row.fields.priority_reason),
+    recommended_staff_email: text(row.fields.recommended_staff_email),
+    assignment_reason: text(row.fields.assignment_reason),
     procedure_id: text(row.fields.procedure_id),
     ai_recommendation: text(row.fields.ai_recommendation),
     draft_response: text(row.fields.draft_response),
     assigned_to: text(row.fields.assigned_to) || 'Unassigned',
+    assigned_user_record_id: row.fields.assigned_to && typeof row.fields.assigned_to === 'object' && 'id' in row.fields.assigned_to
+      ? String(row.fields.assigned_to.id) : '',
     status,
-    urgent: status === 'Escalated' || /urgent|hazard|leak|smoke|gas/i.test(text(row.fields.description)),
+    urgent: priority === 'Critical' || status === 'Escalated' || /urgent|hazard|leak|smoke|gas/i.test(text(row.fields.description)),
     created_at: row.createdAt,
   }
 }
@@ -146,6 +153,8 @@ export function activityLog(row: SoftrRecord) {
     record_id: row.id,
     id: text(row.fields.log_id) || row.id,
     task_id: text(row.fields.task_id),
+    task_record_id: row.fields.task_id && typeof row.fields.task_id === 'object' && 'id' in row.fields.task_id
+      ? String(row.fields.task_id.id) : '',
     actor,
     actor_name: actor === 'AI' ? 'StayOps AI' : actor === 'System' ? 'StayOps' : actorId || 'StayOps staff',
     action: action.replace(/^(AI|System|Staff)(?: via Netlify)?:\s*/i, ''),

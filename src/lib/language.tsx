@@ -68,6 +68,10 @@ const VALUE_ZH: Record<string, string> = {
   Escalated: '已升级',
   'Draft Ready': '草稿已生成',
   Resolved: '已解决',
+  Critical: '紧急',
+  High: '高',
+  Normal: '普通',
+  Low: '低',
   // Property statuses
   Operating: '运营中',
   Limited: '部分运营',

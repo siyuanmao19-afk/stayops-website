@@ -43,4 +43,28 @@ export function askAssistant(property_id: string, question: string, language: 'e
   })
 }
 
+export function assignTask(record_id: string, email: string) {
+  return request<{ task: unknown; unchanged: boolean }>('assign-task', {
+    method: 'POST',
+    body: JSON.stringify({ record_id, email }),
+  })
+}
+
+export interface AssignmentNotice { id: string; task_id: string; title: string; created_at: string }
+
+export function getNotifications() {
+  return request<AssignmentNotice[]>('notifications')
+}
+
+export function getPushPublicKey() {
+  return request<{ public_key: string }>('push-subscription')
+}
+
+export function savePushSubscription(subscription: PushSubscription) {
+  return request<{ enabled: boolean }>('push-subscription', {
+    method: 'POST',
+    body: JSON.stringify(subscription),
+  })
+}
+
 

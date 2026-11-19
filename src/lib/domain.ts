@@ -71,10 +71,15 @@ export interface Task {
   property_id: string
   task_type: TaskType
   ai_summary: string
+  priority: 'Critical' | 'High' | 'Normal' | 'Low'
+  priority_reason: string
+  recommended_staff_email: string
+  assignment_reason: string
   procedure_id: string
   ai_recommendation: string
   draft_response: string
   assigned_to: string
+  assigned_user_record_id: string
   status: TaskStatus
   urgent: boolean
   created_at: string
@@ -86,6 +91,7 @@ export interface ActivityLog {
   record_id: string
   id: string
   task_id: string
+  task_record_id?: string
   actor: Actor
   actor_name: string
   action: string
@@ -127,6 +133,10 @@ export interface AssistantResult extends AssistantText {
   task_id: string
   task_record_id: string
   task_type: TaskType
+  priority: Task['priority']
+  priority_reason: string
+  recommended_staff_email: string
+  assignment_reason: string
   procedure: Procedure | null
   handling_record: string
   /** Simplified Chinese version for display, when the request was made in Chinese mode. */

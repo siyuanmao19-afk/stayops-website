@@ -47,6 +47,7 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      { rel: 'manifest', href: '/manifest.webmanifest' },
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
       { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
       {

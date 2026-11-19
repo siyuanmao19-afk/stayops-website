@@ -2,7 +2,8 @@ import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { createRecord, FIELD_IDS, listRecords, tableId, updateRecord } from './_lib/softr.mts'
 import { procedure, property } from './_lib/normalise.mts'
 import { hasHan } from './_lib/translate.mts'
-import { requireAuth } from './_lib/auth.mts'
+import { registeredEmployeeEmails, requireSession, session } from './_lib/access.mts'
+import { user } from './_lib/normalise.mts'
 
 const TYPES = new Set(['Guest enquiry', 'Guest issue', 'Maintenance', 'Housekeeping', 'Review response'])
 
@@ -47,10 +48,11 @@ function procedureSteps(value: unknown) {
 
 export default async (request: Request) => {
   if (request.method !== 'POST') return methodNotAllowed(['POST'])
-  const unauthorized = await requireAuth()
+  const viewer = await session()
+  const unauthorized = requireSession(viewer)
   if (unauthorized) return unauthorized
   let taskRecordId = ''
-  let displayTaskId = ''
+  let displayTaskId: string
   try {
     const body = await request.json() as Record<string, unknown>
     const propertyId = String(body.property_id || '').trim()
@@ -80,9 +82,14 @@ export default async (request: Request) => {
       [FIELD_IDS.tasks.task_type]: 'Guest enquiry',
       [FIELD_IDS.tasks.description]: question,
       [FIELD_IDS.tasks.status]: 'Open',
+      ...(viewer!.manager ? {} : { [FIELD_IDS.tasks.assigned_to]: viewer!.profile?.record_id }),
     })
     taskRecordId = initial.id
 
+    const registered = viewer!.manager ? await registeredEmployeeEmails() : null
+    const staff = registered
+      ? (await listRecords(tableId('users'))).map(user).filter((item) => registered.has(item.email.toLowerCase()))
+      : []
     const procedureContext = available.length
       ? available.map(({ item }) => ({
           procedure_id: item.procedure_id,
@@ -112,7 +119,11 @@ export default async (request: Request) => {
           },
           {
             role: 'user',
-            content: JSON.stringify({ property: selectedProperty, guest_request: question, allowed_procedures: procedureContext }),
+            content: JSON.stringify({ property: selectedProperty, guest_request: question, allowed_procedures: procedureContext, available_staff: staff.map(({ name, email, role, property_id }) => ({ name, email, role, property_id })) }),
+          },
+          {
+            role: 'system',
+            content: 'Also return priority (Critical, High, Normal, or Low), priority_reason, recommended_staff_email, and assignment_reason. Recommend only an email from available_staff, preferring the same property and a relevant role. Return an empty email if no one is suitable. This is advice for a manager, not an automatic assignment.',
           },
         ],
       }),
@@ -149,6 +160,10 @@ export default async (request: Request) => {
     const guestReply = bounded(result.guest_reply, 2000, 'Thank you for contacting us. Our team is reviewing your request and will update you shortly.')
     const title = bounded(result.title, 160, 'Guest service request')
     const taskTypePhrase = bounded(result.task_type_phrase, 80, taskType)
+    const priority = ['Critical', 'High', 'Normal', 'Low'].includes(String(result.priority)) ? String(result.priority) : 'Normal'
+    const priorityReason = bounded(result.priority_reason, 240)
+    const recommended = staff.find((item) => item.email.toLowerCase() === String(result.recommended_staff_email || '').toLowerCase())
+    const assignmentReason = bounded(result.assignment_reason, 240)
     const englishRequest = hasHan(question) ? bounded(result.guest_request_en, 1200, '') : ''
     const zh = (language === 'zh' && typeof result.zh === 'object' && result.zh ? result.zh : {}) as Record<string, unknown>
     // Chinese is returned for display only; Softr receives the English fields above.
@@ -168,6 +183,10 @@ export default async (request: Request) => {
       [FIELD_IDS.tasks.task_type]: taskType,
       [FIELD_IDS.tasks.procedure_id]: matched?.row.id || '',
       [FIELD_IDS.tasks.ai_summary]: taskTypePhrase,
+      [FIELD_IDS.tasks.priority]: priority,
+      [FIELD_IDS.tasks.priority_reason]: priorityReason,
+      [FIELD_IDS.tasks.recommended_staff_email]: recommended?.email || '',
+      [FIELD_IDS.tasks.assignment_reason]: assignmentReason,
       [FIELD_IDS.tasks.ai_recommendation]: staffAction,
       [FIELD_IDS.tasks.draft_response]: guestReply,
       [FIELD_IDS.tasks.status]: status,
@@ -175,7 +194,7 @@ export default async (request: Request) => {
     await createRecord(tableId('activityLogs'), {
       [FIELD_IDS.activityLogs.log_id]: `AI-${Date.now()}`,
       [FIELD_IDS.activityLogs.task_id]: taskRecordId,
-      [FIELD_IDS.activityLogs.action]: `AI task analysis created for staff review.\nType: ${taskType}\nMatched procedure: ${matched?.item.procedure_id || 'None; owner review required'}\nRecommended status: ${status}`,
+      [FIELD_IDS.activityLogs.action]: `AI task analysis created for staff review.\nType: ${taskType}\nPriority: ${priority}. ${priorityReason}\nRecommended assignee: ${recommended?.email || 'None'}. ${assignmentReason}\nMatched procedure: ${matched?.item.procedure_id || 'None; owner review required'}\nRecommended status: ${status}`,
       [FIELD_IDS.activityLogs.created_at]: new Date().toISOString(),
     })
 
@@ -185,6 +204,10 @@ export default async (request: Request) => {
       task_type: taskType,
       title,
       task_type_phrase: taskTypePhrase,
+      priority,
+      priority_reason: priorityReason,
+      recommended_staff_email: recommended?.email || '',
+      assignment_reason: assignmentReason,
       summary,
       procedure: matched?.item || generatedProcedure,
       staff_action: staffAction,

@@ -23,7 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ApprovalTag, PageHeader } from '@/components/app/PageHeader'
 import { DataState } from '@/components/app/DataState'
 import { RichText, stripBold } from '@/components/brand/RichText'
-import { askAssistant, updateTask } from '@/lib/api'
+import { askAssistant, assignTask, updateTask } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { useStayOpsData } from '@/lib/data-context'
 import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult, type AssistantText } from '@/lib/domain'
 import { translateProcedure } from '@/lib/translation'
@@ -37,8 +38,13 @@ const MAX_QUESTION = 1200
 type Phase = 'idle' | 'processing' | 'success' | 'error'
 
 function AssistantPage() {
-  const { language, pick } = useLanguage()
+  const { language, pick, tv } = useLanguage()
+  const { user } = useAuth()
+  const manager = user?.email?.toLowerCase() === 'siyuanmao19@gmail.com'
   const { data, loading, error, refresh, tx, ensureTranslated } = useStayOpsData()
+  const [assignmentTaskId, setAssignmentTaskId] = useState('')
+  const [assigneeEmail, setAssigneeEmail] = useState('')
+  const [assigning, setAssigning] = useState(false)
   const [propertyId, setPropertyId] = useState('')
   const [question, setQuestion] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
@@ -88,8 +94,13 @@ function AssistantPage() {
     try {
       const r = await askAssistant(propertyId, q, language)
       setResult(r)
+      if (manager) {
+        setAssignmentTaskId(r.task_record_id)
+        setAssigneeEmail(r.recommended_staff_email)
+      }
       setSavedDraft(null)
       setPhase('success')
+      await refresh()
     } catch {
       setPhase('error')
     }
@@ -98,6 +109,12 @@ function AssistantPage() {
   if (loading && !data) return <DataState loading />
   if (error || !data) return <DataState error={error || pick('No data returned.', '未返回数据。')} retry={refresh} />
 
+  const unassigned = manager ? data.tasks.filter((item) => !item.assigned_to || item.assigned_to === 'Unassigned') : []
+  const selectedTask = unassigned.find((item) => item.record_id === assignmentTaskId)
+  const suggestedEmail = selectedTask?.record_id === result?.task_record_id
+    ? result?.recommended_staff_email || ''
+    : selectedTask?.recommended_staff_email || ''
+
   return (
     <>
       <PageHeader
@@ -105,6 +122,38 @@ function AssistantPage() {
         title="Ask StayOps AI"
         description="Paste a guest message. StayOps classifies it, matches the property’s own procedure and drafts a reply for you to review."
       />
+
+      {manager && (
+        <section className="mb-6 rounded-3xl border border-champagne/40 bg-paper p-5 shadow-soft sm:p-7">
+          <h2 className="font-display text-2xl font-semibold text-walnut">{pick('AI task assignment', 'AI 任务分配')}</h2>
+          <p className="mt-1 text-sm text-stone">{pick('Review an unassigned task and choose its employee.', '查看未分配任务，确认 AI 建议后选择员工。')}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Select value={assignmentTaskId} onValueChange={(value) => { setAssignmentTaskId(value); setAssigneeEmail('') }}>
+              <SelectTrigger aria-label={pick('Unassigned task', '未分配任务')}><SelectValue placeholder={pick('Choose unassigned task', '选择未分配任务')} /></SelectTrigger>
+              <SelectContent>{unassigned.map((item) => <SelectItem key={item.record_id} value={item.record_id}>{item.title} · {item.id}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={assigneeEmail} onValueChange={setAssigneeEmail}>
+              <SelectTrigger aria-label={pick('Employee', '员工')}><SelectValue placeholder={pick('Choose employee', '选择员工')} /></SelectTrigger>
+              <SelectContent>{data.users.filter((item) => item.email && item.email.toLowerCase() !== user?.email?.toLowerCase() && (!item.property_id || item.property_id === selectedTask?.property_id)).map((item) => <SelectItem key={item.email} value={item.email.toLowerCase()}>{item.name || item.email} · {item.email}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          {selectedTask && <p className="mt-3 text-sm text-stone">{pick('AI priority', 'AI 优先级')}: {tv(selectedTask.priority)} · {selectedTask.priority_reason} · {pick('Recommended employee', '推荐员工')}: {suggestedEmail || pick('No suitable employee suggested', '暂无合适员工建议')}</p>}
+          {selectedTask?.assignment_reason && <p className="mt-1 text-sm text-stone">{selectedTask.assignment_reason}</p>}
+          <Button className="mt-4 rounded-full" disabled={!selectedTask || !assigneeEmail || assigning} onClick={async () => {
+            if (!selectedTask || !assigneeEmail) return
+            setAssigning(true)
+            try {
+              await assignTask(selectedTask.record_id, assigneeEmail)
+              await refresh()
+              setAssignmentTaskId('')
+              setAssigneeEmail('')
+              toast.success(pick('Task assigned; employee notified in the workspace', '任务已分配，员工站内消息已更新'))
+            } catch (reason) {
+              toast.error(reason instanceof Error ? reason.message : pick('Could not assign task', '分配失败'))
+            } finally { setAssigning(false) }
+          }}>{pick('Assign task', '确认分配')}</Button>
+        </section>
+      )}
 
       <form
         onSubmit={submit}

@@ -5,11 +5,14 @@ import { PageHeader, StatusBadge, TypeBadge } from '@/components/app/PageHeader'
 import { RichText } from '@/components/brand/RichText'
 import { StatusDot } from '@/components/home/LocationGraph'
 import { useStayOpsData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth'
 import { useLanguage } from '@/lib/language'
 
 export const Route = createFileRoute('/app/')({ component: OverviewPage })
 
 function OverviewPage() {
+  const { user } = useAuth()
+  const manager = user?.email?.toLowerCase() === 'siyuanmao19@gmail.com'
   const { data, loading, error, refresh, propertyById } = useStayOpsData()
   const { pick } = useLanguage()
   if (loading && !data) return <DataState loading />
@@ -29,7 +32,7 @@ function OverviewPage() {
   ]
   return (
     <>
-      <PageHeader eyebrow="Overview" title="Today at a glance" description="Live operations across every StayOps property." />
+      <PageHeader eyebrow="Overview" title="Today at a glance" description={manager ? 'Live operations across every StayOps property.' : 'Your assigned tasks and recent activity.'} />
       <div className="grid gap-4 sm:grid-cols-3">
         {tiles.map(({ label, value, icon: Icon, tone, search }) => <Link key={label} to="/app/tasks" search={search} aria-label={pick(`View ${label} in Tasks`, `在任务页面查看${label}`)} className="group rounded-3xl border border-border bg-paper p-6 shadow-soft transition hover:border-champagne hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-walnut"><div className="flex items-center justify-between"><p className="text-sm font-medium text-stone">{label}</p><Icon className={`size-5 ${tone}`} aria-hidden="true" /></div><div className="mt-3 flex items-end justify-between gap-2"><p className={`font-display text-5xl font-semibold ${tone}`}>{value}</p><ArrowRight className="size-5 text-stone transition group-hover:translate-x-1 group-hover:text-walnut" aria-hidden="true" /></div></Link>)}
       </div>

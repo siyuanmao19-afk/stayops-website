@@ -49,13 +49,23 @@ never use `VITE_`, `NEXT_PUBLIC_` or `PUBLIC_` prefixes, and never commit values
 | `AI_SERVICE` | AI provider selector |
 | `DEEPSEEK_KEY` | DeepSeek API key (secret) |
 | `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek endpoint and model |
+| `STAYOPS_INVITE_CODE` | Employee registration code |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push keys and contact address; set for Functions, keep the private key secret |
+
+## Manager, employees and notifications
+
+The existing Identity account `siyuanmao19@gmail.com` is the manager. The registration form creates employee accounts only. After login, the server links each employee email to a Softr Users record. Task ownership is checked against the linked Softr record ID on every task read and edit. Employees see only their assigned tasks; the manager sees all tasks, Properties and Analytics. Both can edit the status of tasks they can access.
+
+AI Assistant creates a task for every request. Employee requests are assigned to the employee; manager requests stay unassigned until the manager confirms an AI-suggested employee. The Tasks screen shows pending assignments and links back to AI Assistant. The new `priority`, `priority_reason`, `recommended_staff_email` and `assignment_reason` columns in Softr Tasks store AI advice separately from task status.
+
+Assignments create an Activity Log entry, which supplies the employee's in-app notification. For phone push, copy the generated key pair from the ignored local `.env.push.local` file to the three `VAPID_*` variables in Netlify production Functions. Keep the private key secret and redeploy after setting variables. On the employee's phone, add StayOps to the home screen if required by the browser, log in, open the bell menu and tap **Enable phone notifications**. A real phone and production HTTPS site are needed to verify lock-screen delivery.
 
 ## Softr field mapping
 
 The live types in `src/lib/domain.ts` and the server normalisers use the existing Softr column
-names without changing the table schema:
+names, plus four AI routing fields added to the Tasks table:
 
-- **Tasks**: `title, description, property_id, task_type, ai_summary, procedure_id, ai_recommendation, draft_response, assigned_to, status`
+- **Tasks**: `title, description, property_id, task_type, ai_summary, procedure_id, ai_recommendation, draft_response, assigned_to, status, priority, priority_reason, recommended_staff_email, assignment_reason`
 - **Procedures**: `procedure_id, property_id, title, instructions, approval_rule`
 - **Activity Logs**: `log_id, task_id, actor_id, action, created_at`
 - **Properties**: `property_id, property_name, location, status`; an optional `image_url` (or a Softr photo/cover attachment field) supplies a property-specific photo. For the eight known locations, city photography appears when no property photo exists; other locations show a missing-photo placeholder.

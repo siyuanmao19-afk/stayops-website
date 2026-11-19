@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Fragment, useMemo, useState } from 'react'
 import { ClipboardList, LayoutGrid, MapPin, PenLine, Rows3, Search, User } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,12 +20,13 @@ import { DataState } from '@/components/app/DataState'
 import { EmptyState, PageHeader, StatusBadge, TypeBadge } from '@/components/app/PageHeader'
 import { RichText } from '@/components/brand/RichText'
 import { updateTask } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { useStayOpsData } from '@/lib/data-context'
 import { TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from '@/lib/domain'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/lib/language'
 
-type TaskSearch = { status?: TaskStatus; priority?: 'urgent' | 'routine' }
+type TaskSearch = { status?: TaskStatus; priority?: 'urgent' | 'routine'; task?: string }
 
 export const Route = createFileRoute('/app/tasks')({
   validateSearch: (search: Record<string, unknown>): TaskSearch => ({
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/app/tasks')({
       ? search.status as TaskStatus
       : undefined,
     priority: search.priority === 'urgent' || search.priority === 'routine' ? search.priority : undefined,
+    task: typeof search.task === 'string' ? search.task : undefined,
   }),
   component: TasksPage,
 })
@@ -41,10 +43,12 @@ const ALL = 'all'
 const isActiveUrgent = (task: Task) => task.urgent && task.status !== 'Resolved'
 
 function TasksPage() {
+  const { user } = useAuth()
+  const manager = user?.email?.toLowerCase() === 'siyuanmao19@gmail.com'
   const { data, raw, loading, error, refresh, updateTaskLocal, propertyById } = useStayOpsData()
   const { pick, tv } = useLanguage()
   const navigate = useNavigate({ from: '/app/tasks' })
-  const { status: statusFilter, priority: priorityFilter } = Route.useSearch()
+  const { status: statusFilter, priority: priorityFilter, task: taskFilter } = Route.useSearch()
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [query, setQuery] = useState('')
   const [property, setProperty] = useState(ALL)
@@ -55,13 +59,14 @@ function TasksPage() {
     const q = query.trim().toLowerCase()
     return (data?.tasks || []).filter(
       (t) =>
+        (!taskFilter || t.record_id === taskFilter) &&
         (property === ALL || t.property_id === property) &&
         (type === ALL || t.task_type === type) &&
         (!statusFilter || t.status === statusFilter) &&
         (!priorityFilter || (priorityFilter === 'urgent' ? isActiveUrgent(t) : !isActiveUrgent(t))) &&
         (!q || `${t.title} ${t.description} ${t.id} ${t.assigned_to}`.toLowerCase().includes(q)),
     ).sort((a, b) => Number(isActiveUrgent(b)) - Number(isActiveUrgent(a)) || b.created_at.localeCompare(a.created_at))
-  }, [data, query, property, type, statusFilter, priorityFilter])
+  }, [data, query, property, type, statusFilter, priorityFilter, taskFilter])
   const groups = [
     { key: 'urgent', title: pick('Urgent attention', '紧急关注'), tasks: filtered.filter(isActiveUrgent) },
     { key: 'routine', title: pick('Other tasks', '其他任务'), tasks: filtered.filter((task) => !isActiveUrgent(task)) },
@@ -87,6 +92,13 @@ function TasksPage() {
           </div>
         }
       />
+
+      {manager && data.tasks.some((task) => task.assigned_to === 'Unassigned') && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-champagne/40 bg-paper p-4 text-sm text-walnut">
+          <span>{pick(`${data.tasks.filter((task) => task.assigned_to === 'Unassigned').length} tasks await assignment.`, `${data.tasks.filter((task) => task.assigned_to === 'Unassigned').length} 项任务待分配。`)}</span>
+          <Button asChild size="sm" variant="outline"><Link to="/app/assistant">{pick('Assign in AI Assistant', '前往 AI 助手分配')}</Link></Button>
+        </div>
+      )}
 
       <div className="mb-6 grid gap-3 rounded-3xl border border-border bg-paper p-4 shadow-soft sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
         <div className="relative">
@@ -137,6 +149,7 @@ function TasksPage() {
                 <span className="font-mono text-xs text-stone">{t.id}</span>
                 <TypeBadge type={t.task_type} />
                 <StatusBadge status={t.status} />
+                <span className="rounded-full border border-champagne/40 px-2 py-0.5 text-xs text-coffee">{pick('Priority', '优先级')}: {tv(t.priority)}</span>
                 {isActiveUrgent(t) && (
                   <span className="rounded-full bg-terracotta px-2 py-0.5 text-xs font-medium text-paper">{pick('Urgent', '紧急')}</span>
                 )}
@@ -150,6 +163,7 @@ function TasksPage() {
 
               <dl className="mt-4 space-y-3 rounded-2xl bg-ivory/70 p-4 text-sm">
                 <Field label={pick('AI summary', 'AI 摘要')}><RichText text={t.ai_summary} /></Field>
+                <Field label={pick('Priority reason', '优先级原因')}>{t.priority_reason || '—'}</Field>
                 <Field label={pick('Procedure', '操作规范')}>
                   {t.procedure_id ? <span className="font-mono text-xs text-walnut">{t.procedure_id}</span> : <span className="text-terracotta">{pick('No verified procedure match', '未匹配到已验证的操作规范')}</span>}
                 </Field>
@@ -208,7 +222,7 @@ function TasksPage() {
                   <TableCell className="font-mono text-xs">{t.procedure_id || '—'}</TableCell>
                   <TableCell className="whitespace-normal text-sm"><RichText text={t.ai_summary} /></TableCell>
                   <TableCell className="text-sm">{t.assigned_to}</TableCell>
-                  <TableCell><StatusBadge status={t.status} /></TableCell>
+                  <TableCell><StatusBadge status={t.status} /><span className="ml-2 text-xs text-coffee">{tv(t.priority)}</span></TableCell>
                   <TableCell>
                     <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setEditing(t)} aria-label={pick(`Edit ${t.title}`, `编辑 ${t.title}`)}>
                       <PenLine />
@@ -280,7 +294,7 @@ function EditDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-draft">{pick('Reply draft', '回复草稿')}</Label>
-            <Textarea id="edit-draft" value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-36 rounded-xl" aria-invalid={tooLong || !draft.trim()} />
+            <Textarea id="edit-draft" value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-36 rounded-xl" aria-invalid={tooLong} />
             {tooLong && <p className="text-xs text-terracotta">{pick('Keep the draft under 2000 characters.', '草稿请控制在 2000 字以内。')}</p>}
           </div>
           <div className="space-y-2">
@@ -295,7 +309,7 @@ function EditDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" className="rounded-full" onClick={() => { setLastId(null); onClose() }}>{pick('Cancel', '取消')}</Button>
-          <Button className="rounded-full" disabled={tooLong || !draft.trim()} onClick={() => { if (task) { setLastId(null); void onSave(task, draft.trim(), status) } }}>
+          <Button className="rounded-full" disabled={tooLong} onClick={() => { if (task) { setLastId(null); void onSave(task, draft.trim(), status) } }}>
             {pick('Save changes', '保存修改')}
           </Button>
         </DialogFooter>

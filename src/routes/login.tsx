@@ -76,7 +76,7 @@ function LoginPage() {
           <p className="mt-2 text-sm leading-relaxed text-stone">
             {mode === 'login'
               ? pick('Sign in to manage tasks and ask the AI assistant.', '登录后即可管理任务并使用 AI 助手。')
-              : pick('Anyone can register with an email address.', '任何人都可以使用邮箱注册。')}
+              : pick('Register as an employee with an invitation code.', '使用邀请码注册员工账号。')}
           </p>
         </div>
 
@@ -126,7 +126,7 @@ function LoginPage() {
           </Button>
         </form>
         <p className="mt-6 text-center text-xs leading-relaxed text-stone">
-          {pick('This is a simple member login. All registered users currently have the same workspace access.', '这是简易成员登录；目前所有注册用户拥有相同的工作台权限。')}
+          {pick('Manager permissions are granted to the designated manager account.', '经理权限仅授予指定的经理账号。')}
         </p>
       </section>
     </main>

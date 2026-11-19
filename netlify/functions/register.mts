@@ -34,6 +34,7 @@ export default async (request: Request) => {
 
     if (!name || name.length > 100) return json({ error: 'Enter a name of 1–100 characters.' }, 400)
     if (!email || email.length > 254 || !email.includes('@')) return json({ error: 'Enter a valid email address.' }, 400)
+    if (email === 'siyuanmao19@gmail.com') return json({ error: 'The manager account must be provisioned by the administrator.' }, 403)
     if (password.length < 8 || password.length > 128) return json({ error: 'Password must contain 8–128 characters.' }, 400)
     if (!inviteCode || inviteCode.length > 128 || !(await matchesInviteCode(inviteCode, expectedCode))) {
       return json({ error: 'The registration code is incorrect.' }, 403)
