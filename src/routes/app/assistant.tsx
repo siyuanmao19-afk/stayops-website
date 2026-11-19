@@ -26,7 +26,7 @@ import { RichText, stripBold } from '@/components/brand/RichText'
 import { ApiError, askAssistant, assignTask, updateTask } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useStayOpsData } from '@/lib/data-context'
-import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult, type AssistantText } from '@/lib/domain'
+import { EXAMPLE_QUESTIONS, EXAMPLE_QUESTIONS_ZH, type AssistantResult, type AssistantText, type Task, type User } from '@/lib/domain'
 import { translateProcedure } from '@/lib/translation'
 import { useLanguage } from '@/lib/language'
 
@@ -64,8 +64,10 @@ function AssistantPage() {
     const p = result.procedure
     void ensureTranslated([
       ...(result.zh ? [] : [result.task_type_phrase, result.summary, result.staff_action, result.guest_reply]),
+      result.priority_reason,
+      result.assignment_reason,
       ...(p ? [p.title, p.approval_rule, ...p.instructions] : []),
-    ])
+    ].filter(Boolean))
   }, [language, result, ensureTranslated])
 
   const view: AssistantText | null = result
@@ -317,6 +319,17 @@ function AssistantPage() {
               )}
             </div>
 
+            {manager && (
+              <ResultAssignment
+                key={result.task_record_id}
+                result={result}
+                task={data.tasks.find((item) => item.record_id === result.task_record_id)}
+                users={data.users}
+                refresh={refresh}
+                onAssigned={() => { setAssignmentTaskId(''); setAssigneeEmail('') }}
+              />
+            )}
+
             <ResultCard n={1} icon={<Tag />} title={pick('Task Type', '任务类型')}>
               <p>{view.task_type_phrase}</p>
             </ResultCard>
@@ -459,6 +472,73 @@ function AssistantPage() {
         )}
       </section>
     </>
+  )
+}
+
+function ResultAssignment({ result, task, users, refresh, onAssigned }: {
+  result: AssistantResult
+  task: Task | undefined
+  users: User[]
+  refresh: () => Promise<void>
+  onAssigned: () => void
+}) {
+  const { pick, tv } = useLanguage()
+  const { tx } = useStayOpsData()
+  const [email, setEmail] = useState(result.recommended_staff_email)
+  const [sending, setSending] = useState(false)
+  const [sentTo, setSentTo] = useState('')
+  const eligible = task ? users.filter((item) => item.email && (!item.property_id || item.property_id === task.property_id)) : []
+  const chosen = eligible.find((item) => item.email.toLowerCase() === email.toLowerCase())
+  const recommended = eligible.find((item) => item.email.toLowerCase() === result.recommended_staff_email.toLowerCase())
+  const alreadyAssigned = Boolean(task && task.assigned_to !== 'Unassigned')
+
+  return (
+    <section className="rounded-3xl border border-champagne/50 bg-paper p-5 shadow-soft sm:p-6" aria-label={pick('Assign this task', '分配此任务')}>
+      <h2 className="font-display text-2xl font-semibold text-walnut">{pick('Recommended employee', '推荐员工')}</h2>
+      <p className="mt-2 text-sm text-stone">{pick('Priority', '优先级')}: {tv(result.priority)}{result.priority_reason && ` · ${tx(result.priority_reason)}`}</p>
+      <p className="mt-2 text-coffee">
+        {recommended ? `${recommended.name || recommended.email} · ${recommended.email}` : pick('No eligible registered employee is available yet.', '目前没有可分配的已注册员工。')}
+      </p>
+      {result.assignment_reason && <p className="mt-1 text-sm text-stone">{tx(result.assignment_reason)}</p>}
+      {alreadyAssigned || sentTo ? (
+        <p className="mt-4 text-sm font-medium text-sage" role="status">{pick('Task assigned', '任务已分配')}{sentTo ? ` · ${sentTo}` : ''}</p>
+      ) : (
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <select
+            aria-label={pick('Choose employee for this task', '选择此任务的员工')}
+            value={chosen?.email.toLowerCase() || ''}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={!task || eligible.length === 0 || sending}
+            className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-paper px-3 text-sm text-walnut shadow-xs disabled:opacity-50"
+          >
+            <option value="">{pick('Choose an employee', '选择员工')}</option>
+            {eligible.map((item) => <option key={item.record_id} value={item.email.toLowerCase()}>{item.name || item.email} · {item.email}</option>)}
+          </select>
+          <Button
+            className="h-11 rounded-full"
+            disabled={!task || !chosen || sending}
+            onClick={async () => {
+              if (!task || !chosen) return
+              setSending(true)
+              try {
+                await assignTask(task.record_id, chosen.email)
+                setSentTo(chosen.email)
+                await refresh()
+                onAssigned()
+                toast.success(pick('Task sent; employee notified in the workspace', '任务已发送，员工站内消息已更新'))
+              } catch (reason) {
+                toast.error(reason instanceof Error ? reason.message : pick('Could not assign task', '分配失败'))
+              } finally { setSending(false) }
+            }}
+          >
+            {sending ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
+            {chosen?.email.toLowerCase() === result.recommended_staff_email.toLowerCase()
+              ? pick('Send to recommended employee', '发送给推荐员工')
+              : pick('Send to selected employee', '发送给所选员工')}
+          </Button>
+        </div>
+      )}
+    </section>
   )
 }
 

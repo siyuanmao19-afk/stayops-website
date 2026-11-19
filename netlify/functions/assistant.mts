@@ -3,6 +3,8 @@ import { createRecord, FIELD_IDS, listRecords, tableId, updateRecord } from './_
 import { procedure, property } from './_lib/normalise.mts'
 import { hasHan } from './_lib/translate.mts'
 import { registeredEmployeeEmails, requireSession, session, uniqueUsersByEmail } from './_lib/access.mts'
+import { task as normaliseTask } from './_lib/normalise.mts'
+import { recommendStaff } from './_lib/recommend-staff.mts'
 
 const TYPES = new Set(['Guest enquiry', 'Guest issue', 'Maintenance', 'Housekeeping', 'Review response'])
 
@@ -101,6 +103,8 @@ export default async (request: Request) => {
     const staff = registered
       ? uniqueUsersByEmail(await listRecords(tableId('users'))).filter((item) => registered.has(item.email.toLowerCase()))
       : []
+    const activeTasks = viewer!.manager ? (await listRecords(tableId('tasks'))).map(normaliseTask) : []
+    const openTaskCount = (recordId: string) => activeTasks.filter((item) => item.assigned_user_record_id === recordId && item.status !== 'Resolved').length
     const procedureContext = available.length
       ? available.map(({ item }) => ({
           procedure_id: item.procedure_id,
@@ -131,11 +135,11 @@ export default async (request: Request) => {
           },
           {
             role: 'system',
-            content: 'Also return priority (Critical, High, Normal, or Low), priority_reason, recommended_staff_email, and assignment_reason. Recommend only an email from available_staff, preferring the same property and a relevant role. Return an empty email if no one is suitable. This is advice for a manager, not an automatic assignment.',
+            content: 'Also return priority (Critical, High, Normal, or Low), priority_reason, recommended_staff_email, and assignment_reason. For a manager request, choose one eligible email from available_staff whenever one exists. Prefer the same property, a relevant role, then fewer open tasks. A blank role or property means unknown, not ineligible. Return an empty email only if no eligible employee exists. Explain the choice briefly. This is advice for a manager, not an automatic assignment.',
           },
           {
             role: 'user',
-            content: JSON.stringify({ property: selectedProperty, guest_request: question, allowed_procedures: procedureContext, available_staff: staff.map(({ name, email, role, property_id }) => ({ name, email, role, property_id })) }),
+            content: JSON.stringify({ property: selectedProperty, guest_request: question, allowed_procedures: procedureContext, available_staff: staff.map(({ name, email, role, property_id, record_id }) => ({ name, email, role, property_id, open_task_count: openTaskCount(record_id) })) }),
           },
         ],
       }),
@@ -181,8 +185,11 @@ export default async (request: Request) => {
     const taskTypePhrase = bounded(result.task_type_phrase, 80, taskType)
     const priority = ['Critical', 'High', 'Normal', 'Low'].includes(String(result.priority)) ? String(result.priority) : 'Normal'
     const priorityReason = bounded(result.priority_reason, 240)
-    const recommended = staff.find((item) => item.email.toLowerCase() === String(result.recommended_staff_email || '').toLowerCase())
-    const assignmentReason = bounded(result.assignment_reason, 240)
+    const recommendation = recommendStaff(staff, activeTasks, propertyId, String(result.recommended_staff_email || ''))
+    const recommended = recommendation.employee
+    const assignmentReason = recommendation.fallback
+      ? 'Suggested from registered employees by property and current open-task count because AI did not choose an employee. Manager confirmation required.'
+      : bounded(result.assignment_reason, 240, recommended ? 'AI suggested this registered employee; manager confirmation required.' : '')
     const englishRequest = hasHan(question) ? bounded(result.guest_request_en, 1200, '') : ''
     const zh = (language === 'zh' && typeof result.zh === 'object' && result.zh ? result.zh : {}) as Record<string, unknown>
     // Chinese is returned for display only; Softr receives the English fields above.
