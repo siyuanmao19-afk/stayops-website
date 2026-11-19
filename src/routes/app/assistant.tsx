@@ -122,6 +122,10 @@ function AssistantPage() {
 
   const unassigned = manager ? data.tasks.filter((item) => !item.assigned_to || item.assigned_to === 'Unassigned') : []
   const selectedTask = unassigned.find((item) => item.record_id === assignmentTaskId)
+  const availableEmployees = selectedTask
+    ? data.users.filter((item) => item.email && item.email.toLowerCase() !== user?.email?.toLowerCase() && (!item.property_id || item.property_id === selectedTask.property_id))
+    : []
+  const selectedEmployee = availableEmployees.some((item) => item.email.toLowerCase() === assigneeEmail) ? assigneeEmail : ''
   const suggestedEmail = selectedTask?.record_id === result?.task_record_id
     ? result?.recommended_staff_email || ''
     : selectedTask?.recommended_staff_email || ''
@@ -137,24 +141,37 @@ function AssistantPage() {
       {manager && (
         <section className="mb-6 rounded-3xl border border-champagne/40 bg-paper p-5 shadow-soft sm:p-7">
           <h2 className="font-display text-2xl font-semibold text-walnut">{pick('AI task assignment', 'AI 任务分配')}</h2>
-          <p className="mt-1 text-sm text-stone">{pick('Review an unassigned task and choose its employee.', '查看未分配任务，确认 AI 建议后选择员工。')}</p>
+          <p className="mt-1 text-sm text-stone">{pick(`Review one of ${unassigned.length} unassigned tasks, then choose an employee.`, `当前有 ${unassigned.length} 项未分配任务，请选择任务和员工。`)}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Select value={assignmentTaskId} onValueChange={(value) => { setAssignmentTaskId(value); setAssigneeEmail('') }}>
-              <SelectTrigger aria-label={pick('Unassigned task', '未分配任务')}><SelectValue placeholder={pick('Choose unassigned task', '选择未分配任务')} /></SelectTrigger>
-              <SelectContent>{unassigned.map((item) => <SelectItem key={item.record_id} value={item.record_id}>{item.title} · {item.id}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={assigneeEmail} onValueChange={setAssigneeEmail}>
-              <SelectTrigger aria-label={pick('Employee', '员工')}><SelectValue placeholder={pick('Choose employee', '选择员工')} /></SelectTrigger>
-              <SelectContent>{data.users.filter((item) => item.email && item.email.toLowerCase() !== user?.email?.toLowerCase() && (!item.property_id || item.property_id === selectedTask?.property_id)).map((item) => <SelectItem key={item.email} value={item.email.toLowerCase()}>{item.name || item.email} · {item.email}</SelectItem>)}</SelectContent>
-            </Select>
+            <select
+              aria-label={pick('Unassigned task', '未分配任务')}
+              value={selectedTask ? assignmentTaskId : ''}
+              onChange={(event) => { setAssignmentTaskId(event.target.value); setAssigneeEmail('') }}
+              disabled={unassigned.length === 0}
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-paper px-3 text-sm text-walnut shadow-xs disabled:opacity-50"
+            >
+              <option value="">{pick('Choose unassigned task', '选择未分配任务')}</option>
+              {unassigned.map((item) => <option key={item.record_id} value={item.record_id}>{item.title} · {item.id}</option>)}
+            </select>
+            <select
+              aria-label={pick('Employee', '员工')}
+              value={selectedEmployee}
+              onChange={(event) => setAssigneeEmail(event.target.value)}
+              disabled={!selectedTask || availableEmployees.length === 0}
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-paper px-3 text-sm text-walnut shadow-xs disabled:opacity-50"
+            >
+              <option value="">{pick('Choose employee', '选择员工')}</option>
+              {availableEmployees.map((item) => <option key={item.email} value={item.email.toLowerCase()}>{item.name || item.email} · {item.email}</option>)}
+            </select>
           </div>
+          {assignmentTaskId && !selectedTask && <p className="mt-2 text-sm text-stone">{pick('That task is no longer awaiting assignment. Choose another task.', '当前任务已不在待分配列表中，请重新选择。')}</p>}
           {selectedTask && <p className="mt-3 text-sm text-stone">{pick('AI priority', 'AI 优先级')}: {tv(selectedTask.priority)} · {selectedTask.priority_reason} · {pick('Recommended employee', '推荐员工')}: {suggestedEmail || pick('No suitable employee suggested', '暂无合适员工建议')}</p>}
           {selectedTask?.assignment_reason && <p className="mt-1 text-sm text-stone">{selectedTask.assignment_reason}</p>}
-          <Button className="mt-4 rounded-full" disabled={!selectedTask || !assigneeEmail || assigning} onClick={async () => {
-            if (!selectedTask || !assigneeEmail) return
+          <Button className="mt-4 rounded-full" disabled={!selectedTask || !selectedEmployee || assigning} onClick={async () => {
+            if (!selectedTask || !selectedEmployee) return
             setAssigning(true)
             try {
-              await assignTask(selectedTask.record_id, assigneeEmail)
+              await assignTask(selectedTask.record_id, selectedEmployee)
               await refresh()
               setAssignmentTaskId('')
               setAssigneeEmail('')
