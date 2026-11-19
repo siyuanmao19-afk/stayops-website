@@ -1,5 +1,7 @@
 import { admin, verifyRequestOrigin } from '@netlify/identity'
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
+import { createRecord, FIELD_IDS, listRecords, tableId } from './_lib/softr.mts'
+import { user } from './_lib/normalise.mts'
 
 declare const Netlify: {
   env: { get(name: string): string | undefined }
@@ -40,11 +42,22 @@ export default async (request: Request) => {
       return json({ error: 'The registration code is incorrect.' }, 403)
     }
 
-    await admin.createUser({
+    const created = await admin.createUser({
       email,
       password,
       data: { user_metadata: { full_name: name } },
     })
+
+    try {
+      const existing = (await listRecords(tableId('users'))).map(user).some((item) => item.email.trim().toLowerCase() === email && item.user_id === created.id)
+      if (!existing) await createRecord(tableId('users'), {
+        [FIELD_IDS.users.user_id]: created.id,
+        [FIELD_IDS.users.name]: name,
+        [FIELD_IDS.users.email]: email,
+      })
+    } catch (reason) {
+      console.error('Could not create employee profile during registration', reason)
+    }
 
     return json({ data: { created: true } }, 201)
   } catch (reason) {

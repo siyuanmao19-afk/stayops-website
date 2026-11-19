@@ -1,7 +1,7 @@
 import { json, methodNotAllowed, safeError } from './_lib/http.mts'
-import { registeredEmployeeEmails, requireManager, session } from './_lib/access.mts'
+import { registeredEmployeeEmails, requireManager, session, uniqueUsersByEmail } from './_lib/access.mts'
 import { createRecord, FIELD_IDS, getRecord, listRecords, tableId, updateRecord } from './_lib/softr.mts'
-import { task, user } from './_lib/normalise.mts'
+import { task } from './_lib/normalise.mts'
 import { notifyEmployee } from './_lib/push.mts'
 
 type NetlifyContext = { waitUntil(promise: Promise<unknown>): void }
@@ -16,7 +16,7 @@ export default async (request: Request, context: NetlifyContext) => {
     const recordId = String(body.record_id || '').trim()
     const email = String(body.email || '').trim().toLowerCase()
     if (!recordId || !email) return json({ error: 'Choose a task and employee.' }, 400)
-    const staff = (await listRecords(tableId('users'))).map(user).find((item) => item.email.toLowerCase() === email && email !== viewer!.email)
+    const staff = uniqueUsersByEmail(await listRecords(tableId('users'))).find((item) => item.email.toLowerCase() === email && email !== viewer!.email)
     if (!staff) return json({ error: 'Employee not found.' }, 404)
     if (!(await registeredEmployeeEmails()).has(email)) return json({ error: 'The employee has not registered an account.' }, 400)
     const current = task(await getRecord(tableId('tasks'), recordId))

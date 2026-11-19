@@ -2,8 +2,7 @@ import { json, methodNotAllowed, safeError } from './_lib/http.mts'
 import { createRecord, FIELD_IDS, listRecords, tableId, updateRecord } from './_lib/softr.mts'
 import { procedure, property } from './_lib/normalise.mts'
 import { hasHan } from './_lib/translate.mts'
-import { registeredEmployeeEmails, requireSession, session } from './_lib/access.mts'
-import { user } from './_lib/normalise.mts'
+import { registeredEmployeeEmails, requireSession, session, uniqueUsersByEmail } from './_lib/access.mts'
 
 const TYPES = new Set(['Guest enquiry', 'Guest issue', 'Maintenance', 'Housekeeping', 'Review response'])
 
@@ -100,7 +99,7 @@ export default async (request: Request) => {
     stage = 'employees'
     const registered = viewer!.manager ? await registeredEmployeeEmails() : null
     const staff = registered
-      ? (await listRecords(tableId('users'))).map(user).filter((item) => registered.has(item.email.toLowerCase()))
+      ? uniqueUsersByEmail(await listRecords(tableId('users'))).filter((item) => registered.has(item.email.toLowerCase()))
       : []
     const procedureContext = available.length
       ? available.map(({ item }) => ({
