@@ -142,7 +142,7 @@ function AssistantPage() {
 
       {manager && (
         <section className="mb-6 rounded-3xl border border-champagne/40 bg-paper p-5 shadow-soft sm:p-7">
-          <h2 className="font-display text-2xl font-semibold text-walnut">{pick('AI task assignment', 'AI 任务分配')}</h2>
+          <h2 className="font-display text-2xl font-semibold text-walnut">{pick('AI task assignment', '任务分配')}</h2>
           <p className="mt-1 text-sm text-stone">{pick(`Review one of ${unassigned.length} unassigned tasks, then choose an employee.`, `当前有 ${unassigned.length} 项未分配任务，请选择任务和员工。`)}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <select
