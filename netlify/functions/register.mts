@@ -54,6 +54,7 @@ export default async (request: Request) => {
         [FIELD_IDS.users.user_id]: created.id,
         [FIELD_IDS.users.name]: name,
         [FIELD_IDS.users.email]: email,
+        [FIELD_IDS.users.role]: 'Staff',
       })
     } catch (reason) {
       console.error('Could not create employee profile during registration', reason)

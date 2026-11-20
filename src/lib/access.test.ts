@@ -7,7 +7,7 @@ vi.mock('../../netlify/functions/_lib/softr.mts', () => ({
   createRecord: vi.fn(),
   listRecords: vi.fn(),
   tableId: vi.fn(),
-  FIELD_IDS: { users: {} },
+  FIELD_IDS: { users: { user_id: 'user_id', name: 'name', email: 'email', role: 'role' } },
 }))
 
 import { ownsTask, visibleTasks, session, uniqueUsersByEmail } from '../../netlify/functions/_lib/access.mts'
@@ -62,6 +62,7 @@ describe('task access', () => {
     vi.mocked(createRecord).mockResolvedValue({ id: 'profile-1', fields: { user_id: 'identity-1', email: 'staff@example.com' }, createdAt: '', updatedAt: '' })
     const [first, second] = await Promise.all([session(), session()])
     expect(createRecord).toHaveBeenCalledTimes(1)
+    expect(createRecord).toHaveBeenCalledWith(undefined, expect.objectContaining({ role: 'Staff' }))
     expect(first?.profile?.record_id).toBe('profile-1')
     expect(second?.profile?.record_id).toBe('profile-1')
   })

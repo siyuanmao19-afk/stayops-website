@@ -28,6 +28,7 @@ function createMissingProfile(identity: { id: string; name?: string }, email: st
         [FIELD_IDS.users.user_id]: identity.id,
         [FIELD_IDS.users.name]: identity.name || email.split('@')[0],
         [FIELD_IDS.users.email]: email,
+        [FIELD_IDS.users.role]: 'Staff',
       })
     })()
     profileCreations.set(identity.id, pending)
