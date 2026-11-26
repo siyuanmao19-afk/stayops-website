@@ -110,8 +110,15 @@ function AssistantPage() {
     } catch (reason) {
       const savedId = reason instanceof ApiError ? reason.taskRecordId : null
       setSavedTaskId(savedId)
+      const reasonZh: Record<string, string> = {
+        connection_failed: 'AI 服务连接失败，任务已保存，可先手动处理。',
+        output_truncated: 'AI 回答因长度限制被截断，任务已保存，可先手动处理。',
+        invalid_response: 'AI 返回的内容格式不完整，任务已保存，可先手动处理。',
+        provider_http_401: 'AI 服务认证失败，任务已保存，请联系管理员。',
+        provider_http_429: 'AI 服务请求过多，任务已保存，请稍后再试。',
+      }
       setAssistantError(reason instanceof ApiError && reason.status === 502
-        ? pick('The AI service could not complete the analysis. The saved task is ready for manual review.', 'AI 服务未能完成分析。已保存的任务可以手动处理。')
+        ? pick(reason.message, reasonZh[reason.code || ''] || 'AI 服务暂时未能完成分析，任务已保存，可先手动处理。')
         : pick('The AI analysis failed. Check the task list before submitting the same request again.', 'AI 分析失败。重新提交同一请求前，请先检查任务列表。'))
       if (manager && savedId) setAssignmentTaskId(savedId)
       setPhase('error')

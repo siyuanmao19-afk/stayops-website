@@ -65,6 +65,9 @@ export default async (request: Request) => {
   let taskRecordId = ''
   let displayTaskId: string
   let stage = 'input'
+  let aiFailureCode = 'unknown'
+  let aiFinishReason = 'unknown'
+  let aiCompletionTokens = 0
   try {
     const body = await request.json() as Record<string, unknown>
     const propertyId = String(body.property_id || '').trim()
@@ -127,7 +130,7 @@ export default async (request: Request) => {
       },
       body: JSON.stringify({
         model: aiEnv('DEEPSEEK_MODEL'),
-        max_tokens: language === 'zh' ? 4000 : 2000,
+        max_tokens: language === 'zh' ? 4000 : 3000,
         temperature: 0.2,
         messages: [
           {
@@ -151,20 +154,29 @@ export default async (request: Request) => {
       try {
         aiResponse = await fetch(aiRequest.clone())
       } catch {
+        aiFailureCode = 'connection_failed'
         if (attempt === 0) continue
-        throw Object.assign(new Error('The AI service could not be reached. The task was kept as Open.'), { status: 502 })
+        throw Object.assign(new Error('The AI service could not be reached. The task was kept as Open.'), { status: 502, code: aiFailureCode })
       }
       if (!aiResponse.ok) {
+        aiFailureCode = `provider_http_${aiResponse.status}`
         if (attempt === 0 && (aiResponse.status === 429 || aiResponse.status >= 500)) continue
-        throw Object.assign(new Error('DeepSeek could not analyse this request. The task was kept as Open.'), { status: 502, providerStatus: aiResponse.status })
+        throw Object.assign(new Error('The AI provider could not analyse this request. The task was kept as Open.'), { status: 502, code: aiFailureCode, providerStatus: aiResponse.status })
       }
-      const aiPayload = await aiResponse.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }> } | null
-      const content = aiPayload?.choices?.[0]?.message?.content
+      const aiPayload = await aiResponse.json().catch(() => null) as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: { completion_tokens?: number } } | null
+      const choice = aiPayload?.choices?.[0]
+      aiFinishReason = String(choice?.finish_reason || 'unknown').slice(0, 30)
+      aiCompletionTokens = Number(aiPayload?.usage?.completion_tokens) || 0
+      const content = choice?.message?.content
       if (content) {
         try { result = parseAssistantJson(content) } catch { result = null }
       }
+      if (!result) aiFailureCode = aiFinishReason === 'length' ? 'output_truncated' : 'invalid_response'
+      else aiFailureCode = 'none'
     }
-    if (!result) throw Object.assign(new Error('AI returned an incomplete analysis. The task was kept as Open.'), { status: 502 })
+    if (!result) throw Object.assign(new Error(aiFailureCode === 'output_truncated'
+      ? 'The AI answer was cut off before it was complete. The task was kept as Open.'
+      : 'AI returned an incomplete analysis. The task was kept as Open.'), { status: 502, code: aiFailureCode })
 
     const taskType = TYPES.has(String(result.task_type)) ? String(result.task_type) : 'Guest enquiry'
     const requestedProcedure = String(result.procedure_id || '').trim()
@@ -257,13 +269,16 @@ export default async (request: Request) => {
       error: reason instanceof Error ? reason.name : 'Unknown',
       status: typeof reason === 'object' && reason && 'status' in reason ? reason.status : 500,
       providerStatus: typeof reason === 'object' && reason && 'providerStatus' in reason ? reason.providerStatus : undefined,
+      aiFailureCode,
+      aiFinishReason,
+      aiCompletionTokens,
     })
     if (taskRecordId) {
       try {
         await createRecord(tableId('activityLogs'), {
           [FIELD_IDS.activityLogs.log_id]: `SYS-${Date.now()}`,
           [FIELD_IDS.activityLogs.task_id]: taskRecordId,
-          [FIELD_IDS.activityLogs.action]: `System: AI analysis failed during ${stage}; task retained as Open for manual handling`,
+          [FIELD_IDS.activityLogs.action]: `System: AI analysis failed during ${stage}; code=${aiFailureCode}; finish=${aiFinishReason}; completion_tokens=${aiCompletionTokens}; task retained as Open for manual handling`,
           [FIELD_IDS.activityLogs.created_at]: new Date().toISOString(),
         })
       } catch { /* preserve the original failure */ }
@@ -274,6 +289,7 @@ export default async (request: Request) => {
       error: status === 502 && reason instanceof Error
         ? reason.message
         : 'AI analysis failed after the task was created. Open the saved task for manual handling.',
+      code: status === 502 ? aiFailureCode : 'analysis_failed',
       task_record_id: taskRecordId,
     }, Number.isFinite(status) ? status : 500)
   }

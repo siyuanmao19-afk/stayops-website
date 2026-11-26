@@ -3,11 +3,13 @@ import type { AssistantResult, DashboardData, TaskStatus } from './domain'
 export class ApiError extends Error {
   status: number
   taskRecordId: string | null
+  code: string | null
 
-  constructor(message: string, status: number, taskRecordId: string | null = null) {
+  constructor(message: string, status: number, taskRecordId: string | null = null, code: string | null = null) {
     super(message)
     this.status = status
     this.taskRecordId = taskRecordId
+    this.code = code
   }
 }
 
@@ -16,8 +18,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
-  const body = (await response.json().catch(() => null)) as { data?: T; error?: string; task_record_id?: string } | null
-  if (!response.ok) throw new ApiError(body?.error || 'The request could not be completed.', response.status, body?.task_record_id || null)
+  const body = (await response.json().catch(() => null)) as { data?: T; error?: string; code?: string; task_record_id?: string } | null
+  if (!response.ok) throw new ApiError(body?.error || 'The request could not be completed.', response.status, body?.task_record_id || null, body?.code || null)
   return body?.data as T
 }
 
