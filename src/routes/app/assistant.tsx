@@ -111,7 +111,7 @@ function AssistantPage() {
       const savedId = reason instanceof ApiError ? reason.taskRecordId : null
       setSavedTaskId(savedId)
       setAssistantError(reason instanceof ApiError && reason.status === 502
-        ? pick('The AI service returned an incomplete response. The saved task is ready for manual review.', 'AI 服务返回的分析不完整。已保存的任务可以手动处理。')
+        ? pick('The AI service could not complete the analysis. The saved task is ready for manual review.', 'AI 服务未能完成分析。已保存的任务可以手动处理。')
         : pick('The AI analysis failed. Check the task list before submitting the same request again.', 'AI 分析失败。重新提交同一请求前，请先检查任务列表。'))
       if (manager && savedId) setAssignmentTaskId(savedId)
       setPhase('error')

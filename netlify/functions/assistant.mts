@@ -103,6 +103,7 @@ export default async (request: Request) => {
     const staff = registered
       ? uniqueUsersByEmail(await listRecords(tableId('users'))).filter((item) => registered.has(item.email.toLowerCase()))
       : []
+    stage = 'task workload'
     const activeTasks = viewer!.manager ? (await listRecords(tableId('tasks'))).map(normaliseTask) : []
     const openTaskCount = (recordId: string) => activeTasks.filter((item) => item.assigned_user_record_id === recordId && item.status !== 'Resolved').length
     const procedureContext = available.length
@@ -146,7 +147,13 @@ export default async (request: Request) => {
     })
     let result: Record<string, unknown> | null = null
     for (let attempt = 0; attempt < 2 && !result; attempt += 1) {
-      const aiResponse = await fetch(aiRequest.clone())
+      let aiResponse: Response
+      try {
+        aiResponse = await fetch(aiRequest.clone())
+      } catch {
+        if (attempt === 0) continue
+        throw Object.assign(new Error('The AI service could not be reached. The task was kept as Open.'), { status: 502 })
+      }
       if (!aiResponse.ok) {
         if (attempt === 0 && (aiResponse.status === 429 || aiResponse.status >= 500)) continue
         throw Object.assign(new Error('DeepSeek could not analyse this request. The task was kept as Open.'), { status: 502, providerStatus: aiResponse.status })
@@ -256,7 +263,7 @@ export default async (request: Request) => {
         await createRecord(tableId('activityLogs'), {
           [FIELD_IDS.activityLogs.log_id]: `SYS-${Date.now()}`,
           [FIELD_IDS.activityLogs.task_id]: taskRecordId,
-          [FIELD_IDS.activityLogs.action]: 'System: AI analysis failed; task retained as Open for manual handling',
+          [FIELD_IDS.activityLogs.action]: `System: AI analysis failed during ${stage}; task retained as Open for manual handling`,
           [FIELD_IDS.activityLogs.created_at]: new Date().toISOString(),
         })
       } catch { /* preserve the original failure */ }
