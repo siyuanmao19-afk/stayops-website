@@ -51,7 +51,8 @@ export async function session() {
     profile = normaliseUser(created)
   }
   const profileRecordIds = [...new Set([
-    ...matching.filter((item) => item.user_id === identity.id).map((item) => item.record_id),
+    // The same verified email may have legacy Softr profiles with different Identity IDs.
+    ...matching.map((item) => item.record_id),
     ...(profile ? [profile.record_id] : []),
   ])]
   return { identity, email, manager, profile, profileRecordIds }

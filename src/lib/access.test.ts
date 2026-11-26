@@ -72,4 +72,17 @@ describe('task access', () => {
     expect(ownsTask(viewer, 'U001', 'user-duplicate')).toBe(true)
     expect(ownsTask(otherEmployee, 'U001', 'user-duplicate')).toBe(false)
   })
+  it('lets a signed-in employee see tasks linked to an older profile with the same email', async () => {
+    vi.mocked(getUser).mockResolvedValue({ id: 'identity-new', email: 'staff@example.com' } as never)
+    vi.mocked(listRecords).mockResolvedValue([
+      { id: 'profile-old', fields: { user_id: 'identity-old', email: 'staff@example.com' }, createdAt: '2026-11-20T00:00:00Z', updatedAt: '' },
+      { id: 'profile-new', fields: { user_id: 'identity-new', email: 'staff@example.com' }, createdAt: '2026-11-20T01:00:00Z', updatedAt: '' },
+      { id: 'other-person', fields: { user_id: 'identity-other', email: 'other@example.com' }, createdAt: '2026-11-20T02:00:00Z', updatedAt: '' },
+    ])
+    const viewer = await session()
+    expect(viewer?.profileRecordIds).toEqual(['profile-old', 'profile-new'])
+    expect(ownsTask(viewer!, 'identity-old', 'profile-old')).toBe(true)
+    expect(ownsTask(viewer!, 'identity-other', 'other-person')).toBe(false)
+  })
+
 })
