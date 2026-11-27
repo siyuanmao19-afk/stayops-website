@@ -130,6 +130,8 @@ export default async (request: Request) => {
       },
       body: JSON.stringify({
         model: aiEnv('DEEPSEEK_MODEL'),
+        thinking: { type: 'disabled' },
+        response_format: { type: 'json_object' },
         max_tokens: language === 'zh' ? 4000 : 3000,
         temperature: 0.2,
         messages: [

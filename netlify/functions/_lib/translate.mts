@@ -51,6 +51,8 @@ async function callModel(items: string[], target: TargetLanguage): Promise<strin
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, 'api-key': key },
     body: JSON.stringify({
       model: aiEnv('DEEPSEEK_MODEL'),
+      thinking: { type: 'disabled' },
+      response_format: { type: 'json_object' },
       temperature: 0,
       max_tokens: 4000,
       messages: [
